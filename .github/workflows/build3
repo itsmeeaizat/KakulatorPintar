@@ -1,0 +1,59 @@
+name: Build and Release Android APK
+
+on:
+  push:
+    tags:
+      - 'v*' # Workflow akan berjalan otomatis setiap kali kamu membuat tag git berawalan 'v' (contoh: v1.0.0)
+  workflow_dispatch: # Bisa juga dijalankan secara manual dari tab Actions di GitHub
+
+jobs:
+  build:
+    name: Build APK Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: |
+          chmod +x gradlew
+          echo "Izin eksekusi gradlew berhasil diberikan."
+
+      - name: Build Release APK
+        run: ./assembleRelease
+
+      - name: Detect Package ID and Version Automatically
+        id: metadata
+        run: |
+          # Mencari file APK hasil build secara otomatis tanpa hardcode nama folder
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          
+          # Mendeteksi nama file APK bersih
+          APK_NAME=$(basename "$APK_PATH")
+          echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
+          
+          echo "Berhasil mendeteksi APK di: $APK_PATH"
+
+      - name: Create GitHub Release and Upload APK
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ steps.metadata.outputs.apk_path }}
+          name: Release ${{ github.ref_name }}
+          body: |
+            Automated Release Build APK 🚀
+            - File APK: `${{ steps.metadata.outputs.apk_name }}`
+            - Diproses otomatis via GitHub Actions.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
