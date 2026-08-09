@@ -1,0 +1,6 @@
+{
+  "name": "Kalkulator Pintar",
+  "description": "Aplikasi Kalkulator dengan Riwayat Perhitungan dan Database Backend",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
