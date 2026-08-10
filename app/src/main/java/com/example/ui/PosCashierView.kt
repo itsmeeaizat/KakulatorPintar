@@ -56,6 +56,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
@@ -67,6 +68,7 @@ import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -75,6 +77,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ReceiptLong
@@ -2459,6 +2462,63 @@ fun ReceiptThermalModal(
     val invoiceNo = remember { existingInvoiceNo ?: "INV-${System.currentTimeMillis().toString().takeLast(6)}" }
     var showStoragePermissionDialog by remember { mutableStateOf(false) }
 
+    // State untuk Tab Mode: 0 = Pratinjau Struk, 1 = Edit Teks Struk
+    var selectedTab by remember { mutableStateOf(0) }
+
+    // Editable Field States
+    var editableStoreName by remember { mutableStateOf(storeName) }
+    var editableAddressPhone by remember { mutableStateOf("Jl. Usaha Bersama No. 88\nTlp: 0812-3456-7890") }
+    var editableCashierName by remember { mutableStateOf("Utama") }
+    var customNote by remember { mutableStateOf("") }
+    var editableFooterNote by remember { mutableStateOf("Terima Kasih Atas Kunjungan Anda!\nBarang Yg Sudah Dibeli Tdk Dpt Ditukar") }
+
+    fun buildDefaultReceiptText(
+        sName: String = editableStoreName,
+        addr: String = editableAddressPhone,
+        cashier: String = editableCashierName,
+        note: String = customNote,
+        footer: String = editableFooterNote
+    ): String {
+        return buildString {
+            appendLine(sName.ifBlank { storeName }.uppercase())
+            if (addr.isNotBlank()) {
+                appendLine(addr.trim())
+            }
+            appendLine("================================")
+            appendLine("No. Struk : $invoiceNo")
+            appendLine("Tgl       : $currentDateStr")
+            appendLine("Metode    : $paymentMethod")
+            appendLine("Kasir     : ${cashier.ifBlank { "Utama" }}")
+            appendLine("--------------------------------")
+            cartItems.forEach { item ->
+                appendLine(item.name)
+                appendLine("  ${item.qty} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}")
+            }
+            appendLine("--------------------------------")
+            appendLine("SUBTOTAL  : ${formatRupiah(subtotal)}")
+            if (discount > 0) appendLine("DISKON    : -${formatRupiah(discount)}")
+            if (tax > 0) appendLine("PPN (11%) : +${formatRupiah(tax)}")
+            if (serviceFee > 0) appendLine("B.LAYANAN : +${formatRupiah(serviceFee)}")
+            appendLine("TOTAL     : ${formatRupiah(totalPrice)}")
+            if (cashPaid > 0) {
+                appendLine("BAYAR     : ${formatRupiah(cashPaid)}")
+                appendLine("KEMBALI   : ${formatRupiah(change)}")
+            }
+            if (note.isNotBlank()) {
+                appendLine("--------------------------------")
+                appendLine("Catatan   : ${note.trim()}")
+            }
+            appendLine("================================")
+            if (footer.isNotBlank()) {
+                appendLine(footer.trim())
+                appendLine("================================")
+            }
+        }
+    }
+
+    var customReceiptText by remember { mutableStateOf(buildDefaultReceiptText()) }
+    var isRawTextModified by remember { mutableStateOf(false) }
+
     // Simpan otomatis ke database transaksi jika ini transaksi baru
     LaunchedEffect(Unit) {
         if (existingInvoiceNo == null && onTransactionSaved != null) {
@@ -2481,39 +2541,6 @@ fun ReceiptThermalModal(
         }
     }
 
-    val formattedReceiptText = remember {
-        buildString {
-            appendLine(storeName.uppercase())
-            appendLine("Jl. Usaha Bersama No. 88")
-            appendLine("Tlp: 0812-3456-7890")
-            appendLine("================================")
-            appendLine("No. Struk : $invoiceNo")
-            appendLine("Tgl       : $currentDateStr")
-            appendLine("Metode    : $paymentMethod")
-            appendLine("Kasir     : Utama")
-            appendLine("--------------------------------")
-            cartItems.forEach { item ->
-                appendLine(item.name)
-                appendLine("  ${item.qty} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}")
-            }
-            appendLine("--------------------------------")
-            appendLine("SUBTOTAL  : ${formatRupiah(subtotal)}")
-            if (discount > 0) appendLine("DISKON    : -${formatRupiah(discount)}")
-            if (tax > 0) appendLine("PPN (11%) : +${formatRupiah(tax)}")
-            if (serviceFee > 0) appendLine("B.LAYANAN : +${formatRupiah(serviceFee)}")
-            appendLine("TOTAL     : ${formatRupiah(totalPrice)}")
-            if (cashPaid > 0) {
-                appendLine("BAYAR     : ${formatRupiah(cashPaid)}")
-                appendLine("KEMBALI   : ${formatRupiah(change)}")
-            }
-            appendLine("================================")
-            appendLine("  Terima Kasih Atas Kunjungan")
-            appendLine("         Barang Yg Sudah")
-            appendLine("   Dibeli Tdk Dpt Ditukar")
-            appendLine("================================")
-        }
-    }
-
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = receiptState,
@@ -2527,7 +2554,7 @@ fun ReceiptThermalModal(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "Pratinjau Struk Belanja Kasir",
+                text = "Hasil Struk Belanja Kasir",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextDark
@@ -2539,266 +2566,388 @@ fun ReceiptThermalModal(
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // Tampilan Struk Thermal Kertas Putih
-            Card(
-                shape = RoundedCornerShape(8.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            // Selector Tab Mode (Pratinjau Struk vs Edit Teks)
+            Row(
                 modifier = Modifier
-                    .width(310.dp)
-                    .border(1.dp, BorderDivider, RoundedCornerShape(8.dp))
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
+                    .background(Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                Surface(
+                    onClick = { selectedTab = 0 },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedTab == 0) Color.White else Color.Transparent,
+                    shadowElevation = if (selectedTab == 0) 2.dp else 0.dp,
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(
-                        text = storeName.uppercase(),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.Center,
-                        color = Color.Black
-                    )
-                    Text(
-                        text = "POS KASIR RESMI",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = Color.Gray
-                    )
-                    Text(
-                        text = "================================",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    )
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("No: $invoiceNo", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Tgl: $currentDateStr", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                    }
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Bayar: $paymentMethod", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                    }
-
-                    Text(
-                        text = "--------------------------------",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    )
-
-                    // Line Items
-                    cartItems.forEach { item ->
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(
-                                text = item.name,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace,
-                                color = Color.Black
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "  ${item.qty} x ${formatRupiah(item.price)}",
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    color = Color.DarkGray
-                                )
-                                Text(
-                                    text = formatRupiah(item.subtotal),
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.Black
-                                )
-                            }
-                        }
-                    }
-
-                    Text(
-                        text = "--------------------------------",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    )
-
-                    // Totals Breakdown
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("SUBTOTAL", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                        Text(formatRupiah(subtotal), fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                    }
-                    if (discount > 0) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("DISKON", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Red)
-                            Text("- ${formatRupiah(discount)}", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Red)
-                        }
-                    }
-                    if (tax > 0) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("PPN (11%)", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                            Text("+ ${formatRupiah(tax)}", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                        }
-                    }
-                    if (serviceFee > 0) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("B. LAYANAN", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                            Text("+ ${formatRupiah(serviceFee)}", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                        }
-                    }
-
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("TOTAL", fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Color.Black)
-                        Text(formatRupiah(totalPrice), fontSize = 14.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Color.Black)
+                        Icon(
+                            imageVector = Icons.Default.Visibility,
+                            contentDescription = null,
+                            tint = if (selectedTab == 0) PurplePrimary else TextSubtle,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "👁️ Pratinjau",
+                            fontSize = 13.sp,
+                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
+                            color = if (selectedTab == 0) PurplePrimary else TextSubtle
+                        )
                     }
+                }
 
-                    if (cashPaid > 0) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("BAYAR", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                            Text(formatRupiah(cashPaid), fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("KEMBALI", fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                            Text(formatRupiah(change), fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = Color.Black)
-                        }
+                Surface(
+                    onClick = { selectedTab = 1 },
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (selectedTab == 1) Color.White else Color.Transparent,
+                    shadowElevation = if (selectedTab == 1) 2.dp else 0.dp,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 10.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = null,
+                            tint = if (selectedTab == 1) PurplePrimary else TextSubtle,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "✏️ Edit Teks Struk",
+                            fontSize = 13.sp,
+                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
+                            color = if (selectedTab == 1) PurplePrimary else TextSubtle
+                        )
                     }
-
-                    Text(
-                        text = "================================",
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Terima Kasih Atas Kunjungan Anda!",
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.Center,
-                        color = Color.Black
-                    )
-                    Text(
-                        text = "Simpan Struk Ini Sebagai Bukti",
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        textAlign = TextAlign.Center,
-                        color = Color.Gray
-                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Action Buttons: Print, Unduh PNG, & Share
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Cetak / Print Struk Thermal
-                    Button(
-                        onClick = {
-                            try {
-                                val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager
-                                if (printManager != null) {
-                                    val printAdapter = TextPrintAdapter(context, formattedReceiptText, storeName)
-                                    printManager.print("Struk_$invoiceNo", printAdapter, PrintAttributes.Builder().build())
-                                } else {
-                                    Toast.makeText(context, "Layanan Cetak tidak tersedia di perangkat ini", Toast.LENGTH_SHORT).show()
-                                }
-                            } catch (e: Exception) {
-                                Toast.makeText(context, "Gagal mencetak: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
-                            }
-                        },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+            if (selectedTab == 0) {
+                // ==================== TAB 0: PRATINJAU STRUK ====================
+                if (isRawTextModified) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFFF8E1),
+                        border = BorderStroke(1.dp, Color(0xFFFFE082)),
                         modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
+                            .fillMaxWidth()
+                            .padding(bottom = 10.dp)
                     ) {
-                        Icon(imageVector = Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Cetak Struk", fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-
-                    // Unduh Gambar PNG ke Penyimpanan Perangkat (Folder: Kalkulator Pintar)
-                    Button(
-                        onClick = {
-                            if (PermissionUtils.hasStoragePermission(context)) {
-                                saveReceiptImageToGallery(
-                                    context = context,
-                                    storeName = storeName,
-                                    invoiceNo = invoiceNo,
-                                    dateStr = currentDateStr,
-                                    paymentMethod = paymentMethod,
-                                    cartItems = cartItems,
-                                    subtotal = subtotal,
-                                    discount = discount,
-                                    tax = tax,
-                                    serviceFee = serviceFee,
-                                    totalPrice = totalPrice,
-                                    cashPaid = cashPaid,
-                                    change = change
-                                )
-                            } else {
-                                showStoragePermissionDialog = true
-                            }
-                        },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = PurplePrimaryContainer, contentColor = PurplePrimary),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp)
-                    ) {
-                        Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Unduh PNG", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = "✨ Teks struk telah dikustomisasi secara manual",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFFB78103)
+                            )
+                        }
                     }
                 }
 
-                // Bagikan Struk
-                Button(
-                    onClick = {
-                        try {
-                            val sendIntent: Intent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(Intent.EXTRA_TEXT, "=== STRUK BELANJA $storeName ===\n\n$formattedReceiptText")
-                                type = "text/plain"
-                            }
-                            val shareIntent = Intent.createChooser(sendIntent, "Bagikan Struk Belanja")
-                            context.startActivity(shareIntent)
-                        } catch (e: Exception) {
-                            Toast.makeText(context, "Gagal membagikan struk", Toast.LENGTH_SHORT).show()
+                // Tampilan Struk Thermal Kertas Putih Real-time
+                Card(
+                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                    modifier = Modifier
+                        .width(320.dp)
+                        .border(1.dp, BorderDivider, RoundedCornerShape(8.dp))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        customReceiptText.lines().forEachIndexed { index, line ->
+                            val trimmed = line.trim()
+                            val isHeader = index == 0
+                            val isCentered = isHeader || trimmed.startsWith("==") || trimmed.startsWith("--") ||
+                                    trimmed.startsWith("Terima Kasih", ignoreCase = true) ||
+                                    trimmed.startsWith("Barang Yg", ignoreCase = true) ||
+                                    trimmed.startsWith("Simpan Struk", ignoreCase = true)
+                            val isBold = isHeader || trimmed.startsWith("TOTAL") || trimmed.startsWith("==")
+
+                            Text(
+                                text = line.ifEmpty { " " },
+                                fontSize = if (isHeader) 15.sp else 11.sp,
+                                fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+                                fontFamily = FontFamily.Monospace,
+                                textAlign = if (isCentered) TextAlign.Center else TextAlign.Start,
+                                color = Color.Black,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
-                    },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = KeypadBackground, contentColor = TextDark),
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Action Buttons: Print, Unduh PNG, & Share
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Cetak / Print Struk Thermal
+                        Button(
+                            onClick = {
+                                try {
+                                    val printManager = context.getSystemService(Context.PRINT_SERVICE) as? PrintManager
+                                    if (printManager != null) {
+                                        val printAdapter = TextPrintAdapter(context, customReceiptText, editableStoreName)
+                                        printManager.print("Struk_$invoiceNo", printAdapter, PrintAttributes.Builder().build())
+                                    } else {
+                                        Toast.makeText(context, "Layanan Cetak tidak tersedia di perangkat ini", Toast.LENGTH_SHORT).show()
+                                    }
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Gagal mencetak: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Print, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Cetak Struk", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+
+                        // Unduh Gambar PNG
+                        Button(
+                            onClick = {
+                                if (PermissionUtils.hasStoragePermission(context)) {
+                                    saveReceiptImageToGalleryFromText(
+                                        context = context,
+                                        rawText = customReceiptText,
+                                        invoiceNo = invoiceNo
+                                    )
+                                } else {
+                                    showStoragePermissionDialog = true
+                                }
+                            },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PurplePrimaryContainer, contentColor = PurplePrimary),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Unduh PNG", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
+
+                    // Bagikan Struk
+                    Button(
+                        onClick = {
+                            try {
+                                val sendIntent: Intent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    putExtra(Intent.EXTRA_TEXT, "=== STRUK BELANJA ===\n\n$customReceiptText")
+                                    type = "text/plain"
+                                }
+                                val shareIntent = Intent.createChooser(sendIntent, "Bagikan Struk Belanja")
+                                context.startActivity(shareIntent)
+                            } catch (e: Exception) {
+                                Toast.makeText(context, "Gagal membagikan struk", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = KeypadBackground, contentColor = TextDark),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Bagikan Teks Struk", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                    }
+                }
+            } else {
+                // ==================== TAB 1: EDIT TEKS & TAMPILAN STRUK ====================
+                LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(380.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Bagikan Teks Struk", fontWeight = FontWeight.Medium, fontSize = 13.sp)
+                    item {
+                        Text(
+                            text = "Form Pengaturan Teks Struk:",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
+                        )
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            value = editableStoreName,
+                            onValueChange = {
+                                editableStoreName = it
+                                customReceiptText = buildDefaultReceiptText()
+                                isRawTextModified = false
+                            },
+                            label = { Text("Nama Toko") },
+                            singleLine = true,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            value = editableAddressPhone,
+                            onValueChange = {
+                                editableAddressPhone = it
+                                customReceiptText = buildDefaultReceiptText()
+                                isRawTextModified = false
+                            },
+                            label = { Text("Alamat & Nomor Telepon Toko") },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = editableCashierName,
+                                onValueChange = {
+                                    editableCashierName = it
+                                    customReceiptText = buildDefaultReceiptText()
+                                    isRawTextModified = false
+                                },
+                                label = { Text("Nama Kasir") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            OutlinedTextField(
+                                value = customNote,
+                                onValueChange = {
+                                    customNote = it
+                                    customReceiptText = buildDefaultReceiptText()
+                                    isRawTextModified = false
+                                },
+                                label = { Text("Catatan Pelanggan (Opsional)") },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.weight(1.2f)
+                            )
+                        }
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            value = editableFooterNote,
+                            onValueChange = {
+                                editableFooterNote = it
+                                customReceiptText = buildDefaultReceiptText()
+                                isRawTextModified = false
+                            },
+                            label = { Text("Pesan Penutup Struk (Footer)") },
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    item {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Editor Teks Bebas Struk (Raw Text):",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextDark
+                            )
+
+                            TextButton(
+                                onClick = {
+                                    editableStoreName = storeName
+                                    editableAddressPhone = "Jl. Usaha Bersama No. 88\nTlp: 0812-3456-7890"
+                                    editableCashierName = "Utama"
+                                    customNote = ""
+                                    editableFooterNote = "Terima Kasih Atas Kunjungan Anda!\nBarang Yg Sudah Dibeli Tdk Dpt Ditukar"
+                                    customReceiptText = buildDefaultReceiptText(
+                                        sName = storeName,
+                                        addr = "Jl. Usaha Bersama No. 88\nTlp: 0812-3456-7890",
+                                        cashier = "Utama",
+                                        note = "",
+                                        footer = "Terima Kasih Atas Kunjungan Anda!\nBarang Yg Sudah Dibeli Tdk Dpt Ditukar"
+                                    )
+                                    isRawTextModified = false
+                                    Toast.makeText(context, "↺ Teks Struk direset ke format default", Toast.LENGTH_SHORT).show()
+                                }
+                            ) {
+                                Icon(imageVector = Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(2.dp))
+                                Text("Reset Default", fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+                    item {
+                        OutlinedTextField(
+                            value = customReceiptText,
+                            onValueChange = {
+                                customReceiptText = it
+                                isRawTextModified = true
+                            },
+                            label = { Text("Edit Karakter/Baris Teks Struk Langsung") },
+                            shape = RoundedCornerShape(12.dp),
+                            textStyle = androidx.compose.ui.text.TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp
+                            ),
+                            minLines = 8,
+                            maxLines = 14,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    item {
+                        Button(
+                            onClick = {
+                                selectedTab = 0
+                                Toast.makeText(context, "✅ Teks Struk diperbarui!", Toast.LENGTH_SHORT).show()
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(46.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Terapkan & Lihat Hasil Struk", fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
 
@@ -2810,20 +2959,10 @@ fun ReceiptThermalModal(
         StoragePermissionDialog(
             onDismiss = { showStoragePermissionDialog = false },
             onGranted = {
-                saveReceiptImageToGallery(
+                saveReceiptImageToGalleryFromText(
                     context = context,
-                    storeName = storeName,
-                    invoiceNo = invoiceNo,
-                    dateStr = currentDateStr,
-                    paymentMethod = paymentMethod,
-                    cartItems = cartItems,
-                    subtotal = subtotal,
-                    discount = discount,
-                    tax = tax,
-                    serviceFee = serviceFee,
-                    totalPrice = totalPrice,
-                    cashPaid = cashPaid,
-                    change = change
+                    rawText = customReceiptText,
+                    invoiceNo = invoiceNo
                 )
             }
         )
@@ -2938,6 +3077,107 @@ fun saveReceiptImageToGallery(
 ) {
     try {
         val bitmap = generateReceiptBitmap(storeName, invoiceNo, dateStr, paymentMethod, cartItems, subtotal, discount, tax, serviceFee, totalPrice, cashPaid, change)
+        val fileName = "Struk_${invoiceNo}_${System.currentTimeMillis()}.png"
+
+        val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val contentValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_PICTURES}/Kalkulator Pintar")
+            }
+            val uri = context.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues)
+            if (uri != null) {
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+                }
+                true
+            } else false
+        } else {
+            val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+            val folder = File(picturesDir, "Kalkulator Pintar")
+            if (!folder.exists()) {
+                folder.mkdirs()
+            }
+            val file = File(folder, fileName)
+            FileOutputStream(file).use { stream ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
+            }
+            true
+        }
+
+        if (success) {
+            Toast.makeText(context, "Gambar PNG disimpan di: Pictures/Kalkulator Pintar", Toast.LENGTH_LONG).show()
+        } else {
+            Toast.makeText(context, "Gagal menyimpan gambar struk", Toast.LENGTH_SHORT).show()
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "Terjadi kesalahan: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+    }
+}
+
+/**
+ * Fungsi untuk membuat Bitmap gambar PNG dari Teks Struk Bebas (Custom Edited Text)
+ */
+fun generateReceiptBitmapFromText(rawText: String): Bitmap {
+    val width = 800
+    val lineSpacing = 42
+    val padding = 40
+
+    val lines = rawText.lines()
+    val height = padding * 2 + (lines.size.coerceAtLeast(1)) * lineSpacing + 40
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+
+    val bgPaint = Paint().apply {
+        color = android.graphics.Color.WHITE
+        style = Paint.Style.FILL
+    }
+    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
+
+    val paint = Paint().apply {
+        color = android.graphics.Color.BLACK
+        textSize = 28f
+        typeface = Typeface.MONOSPACE
+        isAntiAlias = true
+    }
+
+    var y = padding.toFloat() + 30f
+    lines.forEachIndexed { index, line ->
+        val trimmed = line.trim()
+        val isHeader = index == 0
+        val isCentered = isHeader || trimmed.startsWith("==") || trimmed.startsWith("--") ||
+                trimmed.startsWith("Terima Kasih", ignoreCase = true) ||
+                trimmed.startsWith("Barang Yg", ignoreCase = true) ||
+                trimmed.startsWith("Simpan Struk", ignoreCase = true)
+        val isBold = isHeader || trimmed.startsWith("TOTAL") || trimmed.startsWith("==")
+
+        paint.typeface = if (isBold) Typeface.create(Typeface.MONOSPACE, Typeface.BOLD) else Typeface.MONOSPACE
+        paint.textSize = if (isBold && isCentered) 32f else 28f
+
+        val x = if (isCentered) {
+            val textWidth = paint.measureText(line)
+            (width - textWidth) / 2f
+        } else {
+            padding.toFloat()
+        }
+
+        canvas.drawText(line, x, y, paint)
+        y += lineSpacing
+    }
+
+    return bitmap
+}
+
+/**
+ * Menyimpan gambar PNG Struk Belanja dari Teks Bebas ke folder 'Pictures/Kalkulator Pintar'
+ */
+fun saveReceiptImageToGalleryFromText(
+    context: Context,
+    rawText: String,
+    invoiceNo: String
+) {
+    try {
+        val bitmap = generateReceiptBitmapFromText(rawText)
         val fileName = "Struk_${invoiceNo}_${System.currentTimeMillis()}.png"
 
         val success = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
