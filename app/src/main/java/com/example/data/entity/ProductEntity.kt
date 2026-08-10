@@ -11,5 +11,6 @@ data class ProductEntity(
     val name: String,
     val brand: String,
     val price: Double,
-    val stock: Int
+    val stock: Int,
+    val barcode: String = ""
 )

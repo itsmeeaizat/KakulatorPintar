@@ -47,6 +47,18 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.Image
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.QrCode
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.font.FontFamily
+import java.text.NumberFormat
+import java.util.Locale
+import com.example.ui.QrBarcodeGenerator
+import com.example.ui.PermissionUtils
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -97,8 +109,6 @@ import com.example.ui.theme.PurplePrimaryContainer
 import com.example.ui.theme.SurfaceCanvas
 import com.example.ui.theme.TextDark
 import com.example.ui.theme.TextSubtle
-import java.text.NumberFormat
-import java.util.Locale
 
 /**
  * Komponen Utama Etalase Warung dengan Sistem Kategori Berlapis (Multi-Level Category Showcase)
@@ -108,6 +118,9 @@ import java.util.Locale
 fun EtalaseView(
     viewModel: EtalaseViewModel = viewModel(),
     onAddToCart: (ProductEntity) -> Unit = {},
+    cartItemsCount: Int = 0,
+    cartSubtotal: Long = 0L,
+    onOpenCart: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null
 ) {
     val context = LocalContext.current
@@ -124,6 +137,7 @@ fun EtalaseView(
     var showAddProductDialog by remember { mutableStateOf(false) }
     var showAllProductsDialog by remember { mutableStateOf(false) }
     var editingProduct by remember { mutableStateOf<ProductEntity?>(null) }
+    var qrPrintProduct by remember { mutableStateOf<ProductEntity?>(null) }
 
     Surface(
         modifier = Modifier
@@ -444,9 +458,85 @@ fun EtalaseView(
                             items(products, key = { "prod_${it.id}" }) { product ->
                                 ProductCardItem(
                                     product = product,
-                                    onAddToCart = { onAddToCart(product) },
+                                    onAddToCart = {
+                                        onAddToCart(product)
+                                        Toast.makeText(context, "✅ '${product.name}' masuk keranjang", Toast.LENGTH_SHORT).show()
+                                    },
                                     onEdit = { editingProduct = product },
-                                    onDelete = { viewModel.deleteProduct(product.id) }
+                                    onDelete = { viewModel.deleteProduct(product.id) },
+                                    onPrintQrBarcode = { qrPrintProduct = it }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Sticky Floating Cart Bar (Bottom of Etalase view)
+            if (cartItemsCount > 0 && onOpenCart != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = PurplePrimary,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onOpenCart() }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.25f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "$cartItemsCount",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "$cartItemsCount item di keranjang",
+                                    fontSize = 11.sp,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                                val localeId = Locale("id", "ID")
+                                val fmt = NumberFormat.getCurrencyInstance(localeId).apply { maximumFractionDigits = 0 }
+                                Text(
+                                    text = fmt.format(cartSubtotal),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color.White
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Buka Kasir ➔",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PurplePrimary
                                 )
                             }
                         }
@@ -476,8 +566,8 @@ fun EtalaseView(
             allCategories = allCategories,
             defaultCategoryId = currentCategory?.id ?: allCategories.firstOrNull()?.id ?: 0,
             onDismiss = { showAddProductDialog = false },
-            onSave = { name, brand, price, stock, categoryId ->
-                viewModel.addProduct(name, brand, price, stock, categoryId)
+            onSave = { name, brand, price, stock, categoryId, barcode ->
+                viewModel.addProduct(name, brand, price, stock, categoryId, barcode)
                 showAddProductDialog = false
                 Toast.makeText(context, "✅ Produk '$name' berhasil ditambahkan", Toast.LENGTH_SHORT).show()
             },
@@ -505,8 +595,8 @@ fun EtalaseView(
             product = editingProduct!!,
             allCategories = allCategories,
             onDismiss = { editingProduct = null },
-            onSave = { id, name, brand, price, stock, categoryId ->
-                viewModel.updateProduct(id, name, brand, price, stock, categoryId)
+            onSave = { id, name, brand, price, stock, categoryId, barcode ->
+                viewModel.updateProduct(id, name, brand, price, stock, categoryId, barcode)
                 editingProduct = null
                 Toast.makeText(context, "✅ Produk '$name' berhasil diperbarui", Toast.LENGTH_SHORT).show()
             },
@@ -514,6 +604,14 @@ fun EtalaseView(
                 viewModel.addCategory(name, parentId)
                 Toast.makeText(context, "✅ Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
             }
+        )
+    }
+
+    // Modal Dialog "Cetak Barcode / QR Produk"
+    if (qrPrintProduct != null) {
+        ProductQrPrintDialog(
+            product = qrPrintProduct!!,
+            onDismiss = { qrPrintProduct = null }
         )
     }
 }
@@ -723,7 +821,8 @@ fun ProductCardItem(
     product: ProductEntity,
     onAddToCart: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onPrintQrBarcode: ((ProductEntity) -> Unit)? = null
 ) {
     val localeId = Locale("id", "ID")
     val formatter = NumberFormat.getCurrencyInstance(localeId).apply {
@@ -772,6 +871,22 @@ fun ProductCardItem(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (onPrintQrBarcode != null) {
+                        IconButton(
+                            onClick = { onPrintQrBarcode(product) },
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QrCode,
+                                contentDescription = "Cetak Barcode/QR",
+                                tint = Color(0xFF166534),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(4.dp))
+                    }
+
                     IconButton(
                         onClick = onEdit,
                         modifier = Modifier.size(24.dp)
@@ -858,9 +973,11 @@ fun ProductCardItem(
             // Add to Cart Button
             Button(
                 onClick = onAddToCart,
-                enabled = product.stock > 0,
+                enabled = true,
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (product.stock > 0) PurplePrimary else Color(0xFFEA580C)
+                ),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(36.dp)
@@ -872,7 +989,7 @@ fun ProductCardItem(
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "+ Keranjang",
+                    text = if (product.stock > 0) "+ Keranjang" else "+ Keranjang (Stok 0)",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -1574,14 +1691,16 @@ fun CategoryPickerModalDialog(
 fun AddProductDialog(
     allCategories: List<CategoryEntity>,
     defaultCategoryId: Int,
+    initialBarcode: String = "",
     onDismiss: () -> Unit,
-    onSave: (name: String, brand: String, price: Double, stock: Int, categoryId: Int) -> Unit,
+    onSave: (name: String, brand: String, price: Double, stock: Int, categoryId: Int, barcode: String) -> Unit,
     onAddNewCategory: (name: String, parentId: Int?) -> Unit
 ) {
     var productName by remember { mutableStateOf("") }
     var brandName by remember { mutableStateOf("") }
     var priceText by remember { mutableStateOf("") }
     var stockText by remember { mutableStateOf("10") }
+    var barcodeText by remember(initialBarcode) { mutableStateOf(initialBarcode) }
     var selectedCategoryId by remember { mutableStateOf(defaultCategoryId) }
     var showCategoryPicker by remember { mutableStateOf(false) }
 
@@ -1617,7 +1736,7 @@ fun AddProductDialog(
                     }
                 }
                 Text(
-                    text = "Tambah Produk Baru",
+                    text = if (initialBarcode.isNotBlank()) "Daftarkan Produk Baru" else "Tambah Produk Baru",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextDark
@@ -1629,6 +1748,27 @@ fun AddProductDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Kode Barcode Field (if present or requested)
+                OutlinedTextField(
+                    value = barcodeText,
+                    onValueChange = { barcodeText = it },
+                    label = { Text("Kode Barcode / SKU") },
+                    placeholder = { Text("Scan / Ketik kode barcode") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextDark,
+                        unfocusedTextColor = TextDark,
+                        focusedLabelColor = PurplePrimary,
+                        unfocusedLabelColor = TextSubtle,
+                        focusedPlaceholderColor = TextSubtle,
+                        unfocusedPlaceholderColor = TextSubtle,
+                        focusedBorderColor = PurplePrimary,
+                        unfocusedBorderColor = BorderDivider
+                    )
+                )
+
                 // Nama Produk Input
                 OutlinedTextField(
                     value = productName,
@@ -1790,13 +1930,14 @@ fun AddProductDialog(
         },
         confirmButton = {
             val priceVal = priceText.toDoubleOrNull()
-            val isFormValid = productName.isNotBlank() && priceVal != null && priceVal > 0.0
+            val parsedStock = stockText.toIntOrNull()
+            val stock = if (parsedStock != null && parsedStock >= 0) parsedStock else 0
+            val isFormValid = productName.isNotBlank() && priceVal != null && priceVal > 0.0 && parsedStock != null && parsedStock >= 0
             Button(
                 onClick = {
                     val price = priceText.toDoubleOrNull() ?: 0.0
-                    val stock = stockText.toIntOrNull() ?: 0
                     if (isFormValid) {
-                        onSave(productName.trim(), brandName.trim(), price, stock, selectedCategoryId)
+                        onSave(productName.trim(), brandName.trim(), price, stock, selectedCategoryId, barcodeText.trim())
                     }
                 },
                 enabled = isFormValid,
@@ -1833,13 +1974,14 @@ fun EditProductDialog(
     product: ProductEntity,
     allCategories: List<CategoryEntity>,
     onDismiss: () -> Unit,
-    onSave: (id: Int, name: String, brand: String, price: Double, stock: Int, categoryId: Int) -> Unit,
+    onSave: (id: Int, name: String, brand: String, price: Double, stock: Int, categoryId: Int, barcode: String) -> Unit,
     onAddNewCategory: (name: String, parentId: Int?) -> Unit
 ) {
     var productName by remember(product) { mutableStateOf(product.name) }
     var brandName by remember(product) { mutableStateOf(product.brand) }
     var priceText by remember(product) { mutableStateOf(if (product.price % 1.0 == 0.0) product.price.toLong().toString() else product.price.toString()) }
     var stockText by remember(product) { mutableStateOf(product.stock.toString()) }
+    var barcodeText by remember(product) { mutableStateOf(product.barcode) }
     var selectedCategoryId by remember(product) { mutableStateOf(product.categoryId) }
     var showCategoryPicker by remember { mutableStateOf(false) }
 
@@ -1887,6 +2029,27 @@ fun EditProductDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Kode Barcode Field
+                OutlinedTextField(
+                    value = barcodeText,
+                    onValueChange = { barcodeText = it },
+                    label = { Text("Kode Barcode / SKU") },
+                    placeholder = { Text("Ketik kode barcode") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextDark,
+                        unfocusedTextColor = TextDark,
+                        focusedLabelColor = PurplePrimary,
+                        unfocusedLabelColor = TextSubtle,
+                        focusedPlaceholderColor = TextSubtle,
+                        unfocusedPlaceholderColor = TextSubtle,
+                        focusedBorderColor = PurplePrimary,
+                        unfocusedBorderColor = BorderDivider
+                    )
+                )
+
                 // Nama Produk Input
                 OutlinedTextField(
                     value = productName,
@@ -2054,7 +2217,7 @@ fun EditProductDialog(
                     val price = priceText.toDoubleOrNull() ?: 0.0
                     val stock = stockText.toIntOrNull() ?: 0
                     if (isFormValid) {
-                        onSave(product.id, productName.trim(), brandName.trim(), price, stock, selectedCategoryId)
+                        onSave(product.id, productName.trim(), brandName.trim(), price, stock, selectedCategoryId, barcodeText.trim())
                     }
                 },
                 enabled = isFormValid,
@@ -2525,5 +2688,208 @@ fun ProductRowItem(
                 }
             }
         }
+    }
+}
+
+/**
+ * Dialog Cetak / Simpan Label Barcode & QR Code Produk
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProductQrPrintDialog(
+    product: ProductEntity,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var isQrMode by remember { mutableStateOf(false) } // false: Barcode 1D, true: QR Code
+    var showStoragePermissionDialog by remember { mutableStateOf(false) }
+
+    val formattedPrice = remember(product.price) {
+        val localeId = Locale("id", "ID")
+        NumberFormat.getCurrencyInstance(localeId).apply { maximumFractionDigits = 0 }.format(product.price)
+    }
+
+    val barcodeCode = if (product.barcode.isNotBlank()) product.barcode else "SKU-${product.id}"
+
+    val bitmap = remember(product, isQrMode) {
+        if (isQrMode) {
+            QrBarcodeGenerator.generateQrCodeBitmap(
+                qrContent = barcodeCode,
+                productName = product.name,
+                priceStr = formattedPrice
+            )
+        } else {
+            QrBarcodeGenerator.generateBarcodeBitmap(
+                barcodeStr = barcodeCode,
+                productName = product.name,
+                priceStr = formattedPrice
+            )
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White,
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        shape = CircleShape,
+                        color = PurplePrimaryContainer,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.QrCode,
+                                contentDescription = null,
+                                tint = PurplePrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    Text(
+                        text = "Cetak Barcode / QR",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark
+                    )
+                }
+
+                IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                    Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup")
+                }
+            }
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                // Selector Barcode vs QR
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFF1F5F9))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    FilterChip(
+                        selected = !isQrMode,
+                        onClick = { isQrMode = false },
+                        label = { Text("Barcode 1D", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color.White,
+                            selectedLabelColor = PurplePrimary
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    FilterChip(
+                        selected = isQrMode,
+                        onClick = { isQrMode = true },
+                        label = { Text("QR Code 2D", fontSize = 12.sp, fontWeight = FontWeight.Bold) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = Color.White,
+                            selectedLabelColor = PurplePrimary
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // Preview Label Card
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = BorderStroke(1.dp, BorderDivider),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = "Preview Label",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(180.dp)
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Kode Barcode / SKU: $barcodeCode",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = PurplePrimary,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Label ini dapat disimpan ke galeri foto HP untuk dicetak ke stiker produk.",
+                    fontSize = 11.sp,
+                    color = TextSubtle,
+                    textAlign = TextAlign.Center
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (PermissionUtils.hasStoragePermission(context)) {
+                        val savedUri = QrBarcodeGenerator.saveLabelToGallery(
+                            context = context,
+                            bitmap = bitmap,
+                            productName = product.name,
+                            barcodeStr = barcodeCode
+                        )
+                        if (savedUri != null) {
+                            Toast.makeText(context, "✅ Label berhasil disimpan ke Galeri!", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(context, "❌ Gagal menyimpan label", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        showStoragePermissionDialog = true
+                    }
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary)
+            ) {
+                Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Simpan ke Galeri", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Tutup", color = TextSubtle)
+            }
+        }
+    )
+
+    if (showStoragePermissionDialog) {
+        StoragePermissionDialog(
+            onDismiss = { showStoragePermissionDialog = false },
+            onGranted = {
+                QrBarcodeGenerator.saveLabelToGallery(
+                    context = context,
+                    bitmap = bitmap,
+                    productName = product.name,
+                    barcodeStr = barcodeCode
+                )
+                Toast.makeText(context, "✅ Label berhasil disimpan ke Galeri!", Toast.LENGTH_LONG).show()
+            }
+        )
     }
 }

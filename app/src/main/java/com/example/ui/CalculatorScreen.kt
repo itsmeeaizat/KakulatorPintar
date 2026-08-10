@@ -403,7 +403,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                 }
             }
 
-            // Keypad Section (Professional Polish Design with Rounded Top Corners)
+            // Keypad Section (Professional Polish Design with Mode Switch & Scientific Panel)
             Surface(
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                 color = KeypadBackground,
@@ -413,18 +413,247 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                     .testTag("keypad_container")
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
+                    // Mode Switch Selector Bar (Standar vs Sains) matching keypad buttons design
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        KeypadButton(
+                            text = "🔢 Standar",
+                            containerColor = if (!uiState.isScientificMode) PurplePrimary else UtilityKeyContainer,
+                            textColor = if (!uiState.isScientificMode) Color.White else OnUtilityKeyContainer,
+                            height = if (uiState.isScientificMode) 50.dp else 56.dp,
+                            fontSize = 15.sp,
+                            isBold = true,
+                            elevation = if (!uiState.isScientificMode) 2.dp else 1.dp,
+                            modifier = Modifier.weight(1.2f),
+                            tag = "btn_mode_standard",
+                            onClick = { if (uiState.isScientificMode) viewModel.toggleScientificMode() }
+                        )
+
+                        KeypadButton(
+                            text = "🧪 Sains",
+                            containerColor = if (uiState.isScientificMode) PurplePrimary else UtilityKeyContainer,
+                            textColor = if (uiState.isScientificMode) Color.White else OnUtilityKeyContainer,
+                            height = if (uiState.isScientificMode) 50.dp else 56.dp,
+                            fontSize = 15.sp,
+                            isBold = true,
+                            elevation = if (uiState.isScientificMode) 2.dp else 1.dp,
+                            modifier = Modifier.weight(1.2f),
+                            tag = "btn_mode_scientific",
+                            onClick = { if (!uiState.isScientificMode) viewModel.toggleScientificMode() }
+                        )
+
+                        KeypadButton(
+                            text = "00",
+                            containerColor = UtilityKeyContainer,
+                            textColor = OnUtilityKeyContainer,
+                            height = if (uiState.isScientificMode) 50.dp else 56.dp,
+                            fontSize = 16.sp,
+                            isBold = true,
+                            elevation = 1.dp,
+                            modifier = Modifier.weight(0.8f),
+                            tag = "btn_double_zero_top",
+                            onClick = { viewModel.onDoubleZeroClick() }
+                        )
+                    }
+
+                    // Panel Mode Sains (Scientific Mode Functions Grid)
+                    AnimatedVisibility(
+                        visible = uiState.isScientificMode,
+                        enter = fadeIn(),
+                        exit = fadeOut()
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            // Sci Row 1: √, x², xʸ (^), π, e
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                KeypadButton(
+                                    text = "√",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_sqrt",
+                                    onClick = { viewModel.onSquareRootClick() }
+                                )
+                                KeypadButton(
+                                    text = "x²",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_square",
+                                    onClick = { viewModel.onSquareClick() }
+                                )
+                                KeypadButton(
+                                    text = "xʸ",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_power",
+                                    onClick = { viewModel.onOperatorClick("^") }
+                                )
+                                KeypadButton(
+                                    text = "π",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_pi",
+                                    onClick = { viewModel.onConstantClick("π") }
+                                )
+                                KeypadButton(
+                                    text = "e",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_e",
+                                    onClick = { viewModel.onConstantClick("e") }
+                                )
+                            }
+
+                            // Sci Row 2: sin, cos, tan, log, ln
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                KeypadButton(
+                                    text = "sin",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_sin",
+                                    onClick = { viewModel.onTrigFunctionClick("sin") }
+                                )
+                                KeypadButton(
+                                    text = "cos",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_cos",
+                                    onClick = { viewModel.onTrigFunctionClick("cos") }
+                                )
+                                KeypadButton(
+                                    text = "tan",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_tan",
+                                    onClick = { viewModel.onTrigFunctionClick("tan") }
+                                )
+                                KeypadButton(
+                                    text = "log",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_log",
+                                    onClick = { viewModel.onLogFunctionClick("log") }
+                                )
+                                KeypadButton(
+                                    text = "ln",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_ln",
+                                    onClick = { viewModel.onLogFunctionClick("ln") }
+                                )
+                            }
+
+                            // Sci Row 3: (, ), 1/x, 00, %
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                KeypadButton(
+                                    text = "(",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_paren_open",
+                                    onClick = { viewModel.onDigitClick("(") }
+                                )
+                                KeypadButton(
+                                    text = ")",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_paren_close",
+                                    onClick = { viewModel.onDigitClick(")") }
+                                )
+                                KeypadButton(
+                                    text = "1/x",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 15.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_reciprocal",
+                                    onClick = { viewModel.onReciprocalClick() }
+                                )
+                                KeypadButton(
+                                    text = "00",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 16.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_double_zero",
+                                    onClick = { viewModel.onDoubleZeroClick() }
+                                )
+                                KeypadButton(
+                                    text = "%",
+                                    containerColor = UtilityKeyContainer,
+                                    textColor = OnUtilityKeyContainer,
+                                    height = 48.dp,
+                                    fontSize = 18.sp,
+                                    modifier = Modifier.weight(1f),
+                                    tag = "btn_percent_sci",
+                                    onClick = { viewModel.onPercentClick() }
+                                )
+                            }
+                        }
+                    }
+
                     // Row 1: AC, +/-, %, ÷
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         KeypadButton(
                             text = "AC",
                             containerColor = UtilityKeyContainer,
                             textColor = OnUtilityKeyContainer,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_clear",
                             onClick = { viewModel.onClearClick() }
@@ -433,6 +662,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = "+/-",
                             containerColor = UtilityKeyContainer,
                             textColor = OnUtilityKeyContainer,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_toggle_sign",
                             onClick = { viewModel.onToggleSignClick() }
@@ -441,6 +671,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = "%",
                             containerColor = UtilityKeyContainer,
                             textColor = OnUtilityKeyContainer,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_percent",
                             onClick = { viewModel.onPercentClick() }
@@ -450,21 +681,23 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             containerColor = OperatorKeyContainer,
                             textColor = OnPurplePrimaryContainer,
                             isBold = true,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_divide",
-                            onClick = { viewModel.onOperatorClick("/") }
+                            onClick = { viewModel.onOperatorClick("÷") }
                         )
                     }
 
                     // Row 2: 7, 8, 9, ×
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         KeypadButton(
                             text = "7",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_7",
                             onClick = { viewModel.onDigitClick("7") }
@@ -473,6 +706,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = "8",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_8",
                             onClick = { viewModel.onDigitClick("8") }
@@ -481,6 +715,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = "9",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_9",
                             onClick = { viewModel.onDigitClick("9") }
@@ -490,21 +725,23 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             containerColor = OperatorKeyContainer,
                             textColor = OnPurplePrimaryContainer,
                             isBold = true,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_multiply",
-                            onClick = { viewModel.onOperatorClick("*") }
+                            onClick = { viewModel.onOperatorClick("×") }
                         )
                     }
 
                     // Row 3: 4, 5, 6, −
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         KeypadButton(
                             text = "4",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_4",
                             onClick = { viewModel.onDigitClick("4") }
@@ -513,6 +750,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = "5",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_5",
                             onClick = { viewModel.onDigitClick("5") }
@@ -521,6 +759,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = "6",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_6",
                             onClick = { viewModel.onDigitClick("6") }
@@ -530,21 +769,23 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             containerColor = OperatorKeyContainer,
                             textColor = OnPurplePrimaryContainer,
                             isBold = true,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_subtract",
-                            onClick = { viewModel.onOperatorClick("-") }
+                            onClick = { viewModel.onOperatorClick("−") }
                         )
                     }
 
                     // Row 4: 1, 2, 3, +
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         KeypadButton(
                             text = "1",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_1",
                             onClick = { viewModel.onDigitClick("1") }
@@ -553,6 +794,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = "2",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_2",
                             onClick = { viewModel.onDigitClick("2") }
@@ -561,6 +803,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = "3",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_3",
                             onClick = { viewModel.onDigitClick("3") }
@@ -570,21 +813,23 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             containerColor = OperatorKeyContainer,
                             textColor = OnPurplePrimaryContainer,
                             isBold = true,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_add",
                             onClick = { viewModel.onOperatorClick("+") }
                         )
                     }
 
-                    // Row 5: 0, ., ⌫, =
+                    // Row 5: 00, 0, ., ⌫, =
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         KeypadButton(
                             text = "0",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_0",
                             onClick = { viewModel.onDigitClick("0") }
@@ -593,6 +838,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             text = ".",
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_decimal",
                             onClick = { viewModel.onDigitClick(".") }
@@ -600,6 +846,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                         KeypadIconButton(
                             containerColor = Color.White,
                             textColor = TextDark,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_backspace",
                             onClick = { viewModel.onBackspaceClick() }
@@ -609,6 +856,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                             containerColor = PurplePrimary,
                             textColor = Color.White,
                             isBold = true,
+                            height = if (uiState.isScientificMode) 56.dp else 62.dp,
                             elevation = 4.dp,
                             modifier = Modifier.weight(1f),
                             tag = "btn_equals",
@@ -871,7 +1119,7 @@ fun HistoryPreviewRow(
         horizontalAlignment = Alignment.End
     ) {
         Text(
-            text = item.expression,
+            text = item.expression.replace("*", "×").replace("/", "÷"),
             fontSize = 13.sp,
             fontFamily = FontFamily.Monospace,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
@@ -918,7 +1166,7 @@ fun HistoryDetailCard(
                     modifier = Modifier.padding(bottom = 4.dp)
                 )
                 Text(
-                    text = item.expression,
+                    text = item.expression.replace("*", "×").replace("/", "÷"),
                     fontSize = 15.sp,
                     fontFamily = FontFamily.Monospace,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -964,18 +1212,20 @@ fun KeypadButton(
     textColor: Color,
     modifier: Modifier = Modifier,
     isBold: Boolean = false,
+    fontSize: androidx.compose.ui.unit.TextUnit = 22.sp,
+    height: androidx.compose.ui.unit.Dp = 62.dp,
     elevation: androidx.compose.ui.unit.Dp = 1.dp,
     tag: String,
     onClick: () -> Unit
 ) {
     val safeClick = rememberDebouncedClick(onClick = onClick)
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         color = containerColor,
         shadowElevation = elevation,
         modifier = modifier
-            .height(68.dp)
-            .clip(RoundedCornerShape(22.dp))
+            .height(height)
+            .clip(RoundedCornerShape(18.dp))
             .clickable { safeClick() }
             .testTag(tag)
     ) {
@@ -986,7 +1236,7 @@ fun KeypadButton(
             Text(
                 text = text,
                 color = textColor,
-                fontSize = if (isBold) 25.sp else 22.sp,
+                fontSize = if (isBold && fontSize == 22.sp) 25.sp else fontSize,
                 fontWeight = if (isBold) FontWeight.SemiBold else FontWeight.Medium
             )
         }
@@ -998,17 +1248,18 @@ fun KeypadIconButton(
     containerColor: Color,
     textColor: Color,
     modifier: Modifier = Modifier,
+    height: androidx.compose.ui.unit.Dp = 62.dp,
     tag: String,
     onClick: () -> Unit
 ) {
     val safeClick = rememberDebouncedClick(onClick = onClick)
     Surface(
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(18.dp),
         color = containerColor,
         shadowElevation = 1.dp,
         modifier = modifier
-            .height(68.dp)
-            .clip(RoundedCornerShape(22.dp))
+            .height(height)
+            .clip(RoundedCornerShape(18.dp))
             .clickable { safeClick() }
             .testTag(tag)
     ) {
@@ -1020,7 +1271,7 @@ fun KeypadIconButton(
                 imageVector = Icons.AutoMirrored.Filled.Backspace,
                 contentDescription = "Backspace",
                 tint = textColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(22.dp)
             )
         }
     }

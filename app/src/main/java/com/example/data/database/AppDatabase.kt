@@ -24,7 +24,7 @@ import kotlinx.coroutines.launch
         CategoryEntity::class,
         ProductEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -90,24 +90,24 @@ abstract class AppDatabase : RoomDatabase() {
                 // Seed Products
                 productDao.insertProducts(
                     listOf(
-                        ProductEntity(categoryId = idIndomie, name = "Indomie Goreng Spesial 85g", brand = "Indomie", price = 3500.0, stock = 35),
-                        ProductEntity(categoryId = idIndomie, name = "Indomie Kuah Soto Medan 75g", brand = "Indomie", price = 3500.0, stock = 4), // Low stock
-                        ProductEntity(categoryId = idIndomie, name = "Indomie Ayam Bawang 75g", brand = "Indomie", price = 3500.0, stock = 20),
+                        ProductEntity(categoryId = idIndomie, name = "Indomie Goreng Spesial 85g", brand = "Indomie", price = 3500.0, stock = 35, barcode = "8991001"),
+                        ProductEntity(categoryId = idIndomie, name = "Indomie Kuah Soto Medan 75g", brand = "Indomie", price = 3500.0, stock = 4, barcode = "8991005"),
+                        ProductEntity(categoryId = idIndomie, name = "Indomie Ayam Bawang 75g", brand = "Indomie", price = 3500.0, stock = 20, barcode = "8991006"),
 
-                        ProductEntity(categoryId = idMieSedaap, name = "Mie Sedaap Goreng Original", brand = "Wings Food", price = 3500.0, stock = 18),
-                        ProductEntity(categoryId = idMieSedaap, name = "Mie Sedaap Soto Madura", brand = "Wings Food", price = 3500.0, stock = 3), // Low stock
+                        ProductEntity(categoryId = idMieSedaap, name = "Mie Sedaap Goreng Original", brand = "Wings Food", price = 3500.0, stock = 18, barcode = "8991007"),
+                        ProductEntity(categoryId = idMieSedaap, name = "Mie Sedaap Soto Madura", brand = "Wings Food", price = 3500.0, stock = 3, barcode = "8991008"),
 
-                        ProductEntity(categoryId = idSnack, name = "Taro Net Seaweed 36g", brand = "Taro", price = 5000.0, stock = 12),
-                        ProductEntity(categoryId = idSnack, name = "Chitato Sapi Panggang 68g", brand = "Indofood", price = 11500.0, stock = 2), // Low stock
+                        ProductEntity(categoryId = idSnack, name = "Taro Net Seaweed 36g", brand = "Taro", price = 5000.0, stock = 12, barcode = "8994001"),
+                        ProductEntity(categoryId = idSnack, name = "Chitato Sapi Panggang 68g", brand = "Indofood", price = 11500.0, stock = 2, barcode = "8994002"),
 
-                        ProductEntity(categoryId = idKopi, name = "Kopi Kapal Api Grande 25g", brand = "Kapal Api", price = 2500.0, stock = 40),
-                        ProductEntity(categoryId = idKopi, name = "Teh Poci Celup Sosro 25s", brand = "Poci", price = 7500.0, stock = 9),
+                        ProductEntity(categoryId = idKopi, name = "Kopi Kapal Api Grande 25g", brand = "Kapal Api", price = 2500.0, stock = 40, barcode = "8991004"),
+                        ProductEntity(categoryId = idKopi, name = "Teh Poci Celup Sosro 25s", brand = "Poci", price = 7500.0, stock = 9, barcode = "8991003"),
 
-                        ProductEntity(categoryId = idAir, name = "Air Mineral Le Minerale 600ml", brand = "Mayora", price = 4000.0, stock = 3), // Low stock
-                        ProductEntity(categoryId = idAir, name = "Aqua Botol Sedang 600ml", brand = "Danone", price = 4000.0, stock = 24),
+                        ProductEntity(categoryId = idAir, name = "Air Mineral Le Minerale 600ml", brand = "Mayora", price = 4000.0, stock = 3, barcode = "8991002"),
+                        ProductEntity(categoryId = idAir, name = "Aqua Botol Sedang 600ml", brand = "Danone", price = 4000.0, stock = 24, barcode = "8991009"),
 
-                        ProductEntity(categoryId = idMinyak, name = "Minyak Kita Refill 1 Liter", brand = "BPN", price = 16000.0, stock = 15),
-                        ProductEntity(categoryId = idBumbu, name = "Masako Rasa Sapi Sachet 100g", brand = "Ajinomoto", price = 5000.0, stock = 10)
+                        ProductEntity(categoryId = idMinyak, name = "Minyak Kita Refill 1 Liter", brand = "BPN", price = 16000.0, stock = 15, barcode = "8992001"),
+                        ProductEntity(categoryId = idBumbu, name = "Masako Rasa Sapi Sachet 100g", brand = "Ajinomoto", price = 5000.0, stock = 10, barcode = "8992005")
                     )
                 )
             }

@@ -105,11 +105,13 @@ import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.data.entity.ProductEntity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -455,7 +457,10 @@ fun PosCashierBottomSheet(
     var productPrice by remember { mutableStateOf("") }
     var productQty by remember { mutableStateOf("1") }
 
-    // Katalog Preset Produk
+    val etalaseViewModel: EtalaseViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val dbProducts: List<ProductEntity> by etalaseViewModel.allProducts.collectAsState()
+
+    // Katalog Preset Produk Gabungan dengan Produk Baru dari Etalase Room DB
     val presetProducts = remember {
         listOf(
             PresetProduct("Indomie Goreng", 3500, "Makanan & Minuman", "8991001"),
@@ -473,12 +478,26 @@ fun PosCashierBottomSheet(
         )
     }
 
+    val combinedPresetProducts = remember(presetProducts, dbProducts) {
+        val dbPresets = dbProducts.map { item ->
+            PresetProduct(
+                name = item.name,
+                price = item.price.toLong(),
+                category = if (item.brand.isNotBlank() && item.brand != "Umum") item.brand else "Sembako",
+                barcode = ""
+            )
+        }
+        val existingNames = presetProducts.map { it.name.lowercase() }.toSet()
+        val newDbPresets = dbPresets.filterNot { it.name.lowercase() in existingNames }
+        presetProducts + newDbPresets
+    }
+
     var selectedCategory by remember { mutableStateOf("Semua") }
     val categories = remember { listOf("Semua", "Sembako", "Makanan & Minuman", "Kebersihan", "Snack & Kopi") }
 
-    val filteredPresets = remember(selectedCategory) {
-        if (selectedCategory == "Semua") presetProducts
-        else presetProducts.filter { it.category == selectedCategory }
+    val filteredPresets = remember(selectedCategory, combinedPresetProducts) {
+        if (selectedCategory == "Semua") combinedPresetProducts
+        else combinedPresetProducts.filter { it.category == selectedCategory }
     }
 
     val cartItems = remember { mutableStateListOf<CartItem>() }
@@ -502,6 +521,9 @@ fun PosCashierBottomSheet(
     var cashPaidInput by remember { mutableStateOf("") }
     var showReceiptPreview by remember { mutableStateOf(false) }
     var showBarcodeScannerModal by remember { mutableStateOf(false) }
+    var showUnknownBarcodeDialog by remember { mutableStateOf(false) }
+    var unknownBarcodeCode by remember { mutableStateOf("") }
+    var showRegisterProductFromScanDialog by remember { mutableStateOf(false) }
     var showQrisSetupModal by remember { mutableStateOf(false) }
     var showQrisPaymentModal by remember { mutableStateOf(false) }
     var showEWalletSetupModal by remember { mutableStateOf(false) }
@@ -1757,14 +1779,17 @@ fun PosCashierBottomSheet(
                 ) {
                     EtalaseView(
                         onAddToCart = { product ->
-                            val existingIndex = cartItems.indexOfFirst { it.name == product.name }
+                            val existingIndex = cartItems.indexOfFirst { it.name.equals(product.name, ignoreCase = true) }
                             if (existingIndex >= 0) {
                                 val existing = cartItems[existingIndex]
                                 cartItems[existingIndex] = existing.copy(qty = existing.qty + 1)
                             } else {
                                 cartItems.add(CartItem(name = product.name, price = product.price.toLong(), qty = 1))
                             }
-                        }
+                        },
+                        cartItemsCount = cartItems.sumOf { it.qty },
+                        cartSubtotal = cartItems.sumOf { it.subtotal },
+                        onOpenCart = { activeTab = 0 }
                     )
                 }
             }
@@ -1927,7 +1952,7 @@ fun PosCashierBottomSheet(
     // Modal Scanner Barcode Simulator Kamera HP
     if (showBarcodeScannerModal) {
         BarcodeScannerDialog(
-            presetProducts = presetProducts,
+            presetProducts = combinedPresetProducts,
             onBarcodeScanned = { matchedProduct ->
                 val existingIndex = cartItems.indexOfFirst { it.name.equals(matchedProduct.name, ignoreCase = true) }
                 if (existingIndex >= 0) {
@@ -1938,7 +1963,54 @@ fun PosCashierBottomSheet(
                 }
                 Toast.makeText(context, "✅ Barcode Scanned: +1 ${matchedProduct.name}", Toast.LENGTH_SHORT).show()
             },
+            onBarcodeNotFound = { unkCode ->
+                showBarcodeScannerModal = false
+                unknownBarcodeCode = unkCode
+                showUnknownBarcodeDialog = true
+            },
             onDismiss = { showBarcodeScannerModal = false }
+        )
+    }
+
+    // Modal Alert Barcode Tidak Dikenali
+    if (showUnknownBarcodeDialog) {
+        UnknownBarcodeAlertDialog(
+            barcodeCode = unknownBarcodeCode,
+            onDismiss = { showUnknownBarcodeDialog = false },
+            onRegisterNow = {
+                showUnknownBarcodeDialog = false
+                showRegisterProductFromScanDialog = true
+            }
+        )
+    }
+
+    // Modal Daftarkan Produk Baru Dari Kasir Scan
+    if (showRegisterProductFromScanDialog) {
+        val etalaseVm: EtalaseViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+        val allCategoriesState by etalaseVm.allCategories.collectAsState()
+        AddProductDialog(
+            allCategories = allCategoriesState,
+            defaultCategoryId = allCategoriesState.firstOrNull()?.id ?: 0,
+            initialBarcode = unknownBarcodeCode,
+            onDismiss = { showRegisterProductFromScanDialog = false },
+            onSave = { name, brand, price, stock, categoryId, barcode ->
+                etalaseVm.addProduct(name, brand, price, stock, categoryId, barcode)
+                showRegisterProductFromScanDialog = false
+                // Auto-add newly registered product to Cashier Cart directly!
+                val newPriceLong = price.toLong()
+                val existingIndex = cartItems.indexOfFirst { it.name.equals(name, ignoreCase = true) }
+                if (existingIndex >= 0) {
+                    val current = cartItems[existingIndex]
+                    cartItems[existingIndex] = current.copy(qty = current.qty + 1)
+                } else {
+                    cartItems.add(CartItem(name = name, price = newPriceLong, qty = 1))
+                }
+                Toast.makeText(context, "🎉 Produk '$name' berhasil terdaftar & masuk keranjang!", Toast.LENGTH_LONG).show()
+            },
+            onAddNewCategory = { name, parentId ->
+                etalaseVm.addCategory(name, parentId)
+                Toast.makeText(context, "✅ Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
+            }
         )
     }
 
@@ -2055,10 +2127,40 @@ fun PosCashierBottomSheet(
 fun BarcodeScannerDialog(
     presetProducts: List<PresetProduct>,
     onBarcodeScanned: (PresetProduct) -> Unit,
+    onBarcodeNotFound: ((String) -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var barcodeInput by remember { mutableStateOf("") }
     var isFlashOn by remember { mutableStateOf(false) }
+    var hasCameraPermission by remember { mutableStateOf(PermissionUtils.hasCameraPermission(context)) }
+
+    fun processBarcode(codeStr: String) {
+        val cleanCode = codeStr.trim()
+        if (cleanCode.isBlank()) return
+        val matched = presetProducts.find {
+            (it.barcode.isNotBlank() && it.barcode.equals(cleanCode, ignoreCase = true)) ||
+                    it.name.contains(cleanCode, ignoreCase = true)
+        }
+        if (matched != null) {
+            onBarcodeScanned(matched)
+            barcodeInput = ""
+        } else {
+            onBarcodeNotFound?.invoke(cleanCode)
+            barcodeInput = ""
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasCameraPermission = isGranted
+        if (isGranted) {
+            Toast.makeText(context, "✅ Izin kamera diberikan", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "⚠️ Izin kamera ditolak. Silakan berikan izin dari Pengaturan HP.", Toast.LENGTH_LONG).show()
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -2095,49 +2197,60 @@ fun BarcodeScannerDialog(
                     }
                 }
 
-                // Visual Camera Frame Viewfinder Simulation
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.Black),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Laser scan line visual
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (!hasCameraPermission) {
+                    CameraPermissionRequestCard(
+                        onRequestPermission = {
+                            cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                        },
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    )
+                } else {
+                    // Visual Camera Frame Viewfinder Simulation
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.8f)
-                            .height(2.dp)
-                            .background(Color.Red)
-                    )
-
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.5f),
-                            modifier = Modifier.size(40.dp)
-                        )
-                        Text(
-                            text = "Arahkan Barcode Produk ke Garis Merah",
-                            fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.8f)
-                        )
-                    }
-
-                    // Flash Light Toggle Button Simulator
-                    IconButton(
-                        onClick = { isFlashOn = !isFlashOn },
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
+                            .fillMaxWidth()
+                            .height(180.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color.Black),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.FlashOn,
-                            contentDescription = "Flash",
-                            tint = if (isFlashOn) Color.Yellow else Color.White
+                        // Laser scan line visual
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(0.8f)
+                                .height(2.dp)
+                                .background(Color.Red)
                         )
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier.size(40.dp)
+                            )
+                            Text(
+                                text = "Arahkan Barcode Produk ke Garis Merah",
+                                fontSize = 11.sp,
+                                color = Color.White.copy(alpha = 0.8f)
+                            )
+                        }
+
+                        // Flash Light Toggle Button Simulator
+                        IconButton(
+                            onClick = { isFlashOn = !isFlashOn },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.FlashOn,
+                                contentDescription = "Flash",
+                                tint = if (isFlashOn) Color.Yellow else Color.White
+                            )
+                        }
                     }
                 }
 
@@ -2148,18 +2261,12 @@ fun BarcodeScannerDialog(
                     value = barcodeInput,
                     onValueChange = { barcodeInput = it },
                     label = { Text("Ketik No. Barcode / SKU") },
-                    placeholder = { Text("Contoh: 8991001") },
+                    placeholder = { Text("Contoh: 8991001 atau 8999999") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth(),
                     trailingIcon = {
-                        IconButton(onClick = {
-                            val matched = presetProducts.find { it.barcode == barcodeInput.trim() || it.name.contains(barcodeInput.trim(), ignoreCase = true) }
-                            if (matched != null) {
-                                onBarcodeScanned(matched)
-                                barcodeInput = ""
-                            }
-                        }) {
+                        IconButton(onClick = { processBarcode(barcodeInput) }) {
                             Icon(imageVector = Icons.Default.Check, contentDescription = "Proses")
                         }
                     }
@@ -2167,11 +2274,33 @@ fun BarcodeScannerDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Text("Atau Klik Contoh Barcode Produk:", fontSize = 11.sp, color = TextSubtle)
+                // Simulation buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Contoh Barcode / Simulasi:", fontSize = 11.sp, color = TextSubtle)
+
+                    Surface(
+                        onClick = { processBarcode("899987654321") },
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFFFFF3E0),
+                        border = BorderStroke(1.dp, Color(0xFFFFB74D))
+                    ) {
+                        Text(
+                            text = "⚡ Scan Gagal (Tdk Terdaftar)",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE65100),
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
+                }
 
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 4.dp)
+                    modifier = Modifier.padding(top = 6.dp)
                 ) {
                     items(presetProducts) { p ->
                         Surface(
@@ -2193,6 +2322,112 @@ fun BarcodeScannerDialog(
             }
         }
     }
+}
+
+/**
+ * Dialog Alert "Produk Tidak Terdaftar Saat Scan Barcode"
+ */
+@Composable
+fun UnknownBarcodeAlertDialog(
+    barcodeCode: String,
+    onDismiss: () -> Unit,
+    onRegisterNow: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = Color.White,
+        icon = {
+            Surface(
+                shape = CircleShape,
+                color = Color(0xFFFFF3E0),
+                modifier = Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = null,
+                        tint = Color(0xFFE65100),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+            }
+        },
+        title = {
+            Text(
+                text = "Produk Tidak Terdaftar",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextDark,
+                textAlign = TextAlign.Center
+            )
+        },
+        text = {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "Kode Barcode / SKU:",
+                            fontSize = 11.sp,
+                            color = TextSubtle
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = barcodeCode,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PurplePrimary,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Produk dengan kode ini belum ada di database toko Anda.\n\nApakah Anda ingin mendaftarkan produk ini sekarang agar bisa langsung dijual?",
+                    fontSize = 13.sp,
+                    color = TextDark,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onRegisterNow,
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Daftarkan Sekarang", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            OutlinedButton(
+                onClick = onDismiss,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, BorderDivider)
+            ) {
+                Text("Batal", color = TextSubtle)
+            }
+        }
+    )
 }
 
 /**
@@ -2222,6 +2457,7 @@ fun ReceiptThermalModal(
 
     val currentDateStr = remember { existingDateStr ?: dateFormat.format(Date()) }
     val invoiceNo = remember { existingInvoiceNo ?: "INV-${System.currentTimeMillis().toString().takeLast(6)}" }
+    var showStoragePermissionDialog by remember { mutableStateOf(false) }
 
     // Simpan otomatis ke database transaksi jika ini transaksi baru
     LaunchedEffect(Unit) {
@@ -2507,21 +2743,25 @@ fun ReceiptThermalModal(
                     // Unduh Gambar PNG ke Penyimpanan Perangkat (Folder: Kalkulator Pintar)
                     Button(
                         onClick = {
-                            saveReceiptImageToGallery(
-                                context = context,
-                                storeName = storeName,
-                                invoiceNo = invoiceNo,
-                                dateStr = currentDateStr,
-                                paymentMethod = paymentMethod,
-                                cartItems = cartItems,
-                                subtotal = subtotal,
-                                discount = discount,
-                                tax = tax,
-                                serviceFee = serviceFee,
-                                totalPrice = totalPrice,
-                                cashPaid = cashPaid,
-                                change = change
-                            )
+                            if (PermissionUtils.hasStoragePermission(context)) {
+                                saveReceiptImageToGallery(
+                                    context = context,
+                                    storeName = storeName,
+                                    invoiceNo = invoiceNo,
+                                    dateStr = currentDateStr,
+                                    paymentMethod = paymentMethod,
+                                    cartItems = cartItems,
+                                    subtotal = subtotal,
+                                    discount = discount,
+                                    tax = tax,
+                                    serviceFee = serviceFee,
+                                    totalPrice = totalPrice,
+                                    cashPaid = cashPaid,
+                                    change = change
+                                )
+                            } else {
+                                showStoragePermissionDialog = true
+                            }
                         },
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PurplePrimaryContainer, contentColor = PurplePrimary),
@@ -2564,6 +2804,29 @@ fun ReceiptThermalModal(
 
             Spacer(modifier = Modifier.height(12.dp))
         }
+    }
+
+    if (showStoragePermissionDialog) {
+        StoragePermissionDialog(
+            onDismiss = { showStoragePermissionDialog = false },
+            onGranted = {
+                saveReceiptImageToGallery(
+                    context = context,
+                    storeName = storeName,
+                    invoiceNo = invoiceNo,
+                    dateStr = currentDateStr,
+                    paymentMethod = paymentMethod,
+                    cartItems = cartItems,
+                    subtotal = subtotal,
+                    discount = discount,
+                    tax = tax,
+                    serviceFee = serviceFee,
+                    totalPrice = totalPrice,
+                    cashPaid = cashPaid,
+                    change = change
+                )
+            }
+        )
     }
 }
 
@@ -2802,6 +3065,7 @@ fun QrisSetupDialog(
     var staticCode by remember { mutableStateOf(QrisRepository.getQrisStaticCode(context)) }
     var imageUriState by remember { mutableStateOf<Uri?>(null) }
     var savedImagePath by remember { mutableStateOf(QrisRepository.getQrisImagePath(context)) }
+    var showStoragePermissionDialog by remember { mutableStateOf(false) }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -2929,7 +3193,13 @@ fun QrisSetupDialog(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Button(
-                            onClick = { imagePickerLauncher.launch("image/*") },
+                            onClick = {
+                                if (PermissionUtils.hasStoragePermission(context)) {
+                                    imagePickerLauncher.launch("image/*")
+                                } else {
+                                    showStoragePermissionDialog = true
+                                }
+                            },
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = PurplePrimaryContainer)
                         ) {
@@ -3054,6 +3324,13 @@ fun QrisSetupDialog(
                 Text("Simpan Pengaturan QRIS", fontSize = 15.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
+
+    if (showStoragePermissionDialog) {
+        StoragePermissionDialog(
+            onDismiss = { showStoragePermissionDialog = false },
+            onGranted = { imagePickerLauncher.launch("image/*") }
+        )
     }
 }
 

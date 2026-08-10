@@ -27,7 +27,8 @@ data class CalculatorUiState(
     val errorMessage: String? = null,
     val historyList: List<CalculationHistoryEntity> = emptyList(),
     val isHistoryOpen: Boolean = false,
-    val isNewCalculationStarted: Boolean = true
+    val isNewCalculationStarted: Boolean = true,
+    val isScientificMode: Boolean = false
 )
 
 class CalculatorViewModel(application: Application) : AndroidViewModel(application) {
@@ -88,6 +89,12 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun onOperatorClick(op: String) {
+        val displayOp = when (op) {
+            "*" -> "×"
+            "/" -> "÷"
+            "-" -> "−"
+            else -> op
+        }
         _uiState.update { currentState ->
             val cleanState = currentState.copy(errorMessage = null)
 
@@ -96,9 +103,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 if (calc is CalculationResult.Success) {
                     cleanState.copy(
                         firstOperand = calc.result,
-                        operator = op,
+                        operator = displayOp,
                         secondOperand = "",
-                        expressionDisplay = "${calc.result} $op",
+                        expressionDisplay = "${calc.result} $displayOp",
                         liveResult = calc.result,
                         isNewCalculationStarted = false
                     )
@@ -107,16 +114,16 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 }
             } else if (cleanState.firstOperand.isNotEmpty()) {
                 cleanState.copy(
-                    operator = op,
+                    operator = displayOp,
                     isNewCalculationStarted = false,
-                    expressionDisplay = "${cleanState.firstOperand} $op"
+                    expressionDisplay = "${cleanState.firstOperand} $displayOp"
                 )
             } else {
                 cleanState.copy(
                     firstOperand = "0",
-                    operator = op,
+                    operator = displayOp,
                     isNewCalculationStarted = false,
-                    expressionDisplay = "0 $op"
+                    expressionDisplay = "0 $displayOp"
                 )
             }
         }
@@ -267,15 +274,156 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun toggleScientificMode() {
+        _uiState.update { it.copy(isScientificMode = !it.isScientificMode) }
+    }
+
+    fun onDoubleZeroClick() {
+        onDigitClick("0")
+        onDigitClick("0")
+    }
+
+    fun onSquareRootClick() {
+        _uiState.update { currentState ->
+            val targetValStr = when {
+                currentState.secondOperand.isNotEmpty() -> currentState.secondOperand
+                currentState.firstOperand.isNotEmpty() -> currentState.firstOperand
+                currentState.liveResult.isNotEmpty() -> currentState.liveResult
+                else -> "0"
+            }
+            val targetVal = targetValStr.toDoubleOrNull() ?: 0.0
+            if (targetVal < 0) {
+                return@update currentState.copy(errorMessage = "Akar kuadrat dari angka negatif tidak valid.")
+            }
+            val res = Math.sqrt(targetVal)
+            val formatted = BigDecimal(res, java.math.MathContext(12, java.math.RoundingMode.HALF_UP)).stripTrailingZeros().toPlainString()
+            if (currentState.secondOperand.isNotEmpty()) {
+                updateStateWithOperands(currentState, currentState.firstOperand, currentState.operator, formatted)
+            } else {
+                updateStateWithOperands(currentState, formatted, "", "")
+            }
+        }
+    }
+
+    fun onSquareClick() {
+        _uiState.update { currentState ->
+            val targetValStr = when {
+                currentState.secondOperand.isNotEmpty() -> currentState.secondOperand
+                currentState.firstOperand.isNotEmpty() -> currentState.firstOperand
+                currentState.liveResult.isNotEmpty() -> currentState.liveResult
+                else -> "0"
+            }
+            val targetVal = targetValStr.toDoubleOrNull() ?: 0.0
+            val res = targetVal * targetVal
+            val formatted = BigDecimal(res, java.math.MathContext(14, java.math.RoundingMode.HALF_UP)).stripTrailingZeros().toPlainString()
+            if (currentState.secondOperand.isNotEmpty()) {
+                updateStateWithOperands(currentState, currentState.firstOperand, currentState.operator, formatted)
+            } else {
+                updateStateWithOperands(currentState, formatted, "", "")
+            }
+        }
+    }
+
+    fun onReciprocalClick() {
+        _uiState.update { currentState ->
+            val targetValStr = when {
+                currentState.secondOperand.isNotEmpty() -> currentState.secondOperand
+                currentState.firstOperand.isNotEmpty() -> currentState.firstOperand
+                currentState.liveResult.isNotEmpty() -> currentState.liveResult
+                else -> "0"
+            }
+            val targetVal = targetValStr.toDoubleOrNull() ?: 0.0
+            if (targetVal == 0.0) {
+                return@update currentState.copy(errorMessage = "Tidak dapat membagi dengan nol (1/0).")
+            }
+            val res = 1.0 / targetVal
+            val formatted = BigDecimal(res, java.math.MathContext(12, java.math.RoundingMode.HALF_UP)).stripTrailingZeros().toPlainString()
+            if (currentState.secondOperand.isNotEmpty()) {
+                updateStateWithOperands(currentState, currentState.firstOperand, currentState.operator, formatted)
+            } else {
+                updateStateWithOperands(currentState, formatted, "", "")
+            }
+        }
+    }
+
+    fun onTrigFunctionClick(func: String) {
+        _uiState.update { currentState ->
+            val targetValStr = when {
+                currentState.secondOperand.isNotEmpty() -> currentState.secondOperand
+                currentState.firstOperand.isNotEmpty() -> currentState.firstOperand
+                currentState.liveResult.isNotEmpty() -> currentState.liveResult
+                else -> "0"
+            }
+            val deg = targetValStr.toDoubleOrNull() ?: 0.0
+            val rad = Math.toRadians(deg)
+            val res = when (func) {
+                "sin" -> Math.sin(rad)
+                "cos" -> Math.cos(rad)
+                "tan" -> Math.tan(rad)
+                else -> 0.0
+            }
+            val formatted = BigDecimal(res, java.math.MathContext(10, java.math.RoundingMode.HALF_UP)).stripTrailingZeros().toPlainString()
+            if (currentState.secondOperand.isNotEmpty()) {
+                updateStateWithOperands(currentState, currentState.firstOperand, currentState.operator, formatted)
+            } else {
+                updateStateWithOperands(currentState, formatted, "", "")
+            }
+        }
+    }
+
+    fun onLogFunctionClick(func: String) {
+        _uiState.update { currentState ->
+            val targetValStr = when {
+                currentState.secondOperand.isNotEmpty() -> currentState.secondOperand
+                currentState.firstOperand.isNotEmpty() -> currentState.firstOperand
+                currentState.liveResult.isNotEmpty() -> currentState.liveResult
+                else -> "0"
+            }
+            val valDouble = targetValStr.toDoubleOrNull() ?: 0.0
+            if (valDouble <= 0) {
+                return@update currentState.copy(errorMessage = "Logaritma harus untuk angka > 0.")
+            }
+            val res = if (func == "log") Math.log10(valDouble) else Math.log(valDouble)
+            val formatted = BigDecimal(res, java.math.MathContext(10, java.math.RoundingMode.HALF_UP)).stripTrailingZeros().toPlainString()
+            if (currentState.secondOperand.isNotEmpty()) {
+                updateStateWithOperands(currentState, currentState.firstOperand, currentState.operator, formatted)
+            } else {
+                updateStateWithOperands(currentState, formatted, "", "")
+            }
+        }
+    }
+
+    fun onConstantClick(symbol: String) {
+        val constVal = when (symbol) {
+            "π" -> "3.14159265"
+            "e" -> "2.71828182"
+            else -> "0"
+        }
+        _uiState.update { currentState ->
+            val cleanState = currentState.copy(errorMessage = null)
+            if (cleanState.operator.isEmpty()) {
+                updateStateWithOperands(cleanState, constVal, "", "")
+            } else {
+                updateStateWithOperands(cleanState, cleanState.firstOperand, cleanState.operator, constVal)
+            }
+        }
+    }
+
     private fun updateStateWithOperands(
         currentState: CalculatorUiState,
         op1: String,
         op: String,
         op2: String
     ): CalculatorUiState {
+        val displayOp = when (op) {
+            "*" -> "×"
+            "/" -> "÷"
+            "-" -> "−"
+            else -> op
+        }
         val displayExpr = buildString {
             if (op1.isEmpty()) append("0") else append(op1)
-            if (op.isNotEmpty()) append(" ").append(op)
+            if (displayOp.isNotEmpty()) append(" ").append(displayOp)
             if (op2.isNotEmpty()) append(" ").append(op2)
         }
 
@@ -289,7 +437,7 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
         return currentState.copy(
             firstOperand = op1,
-            operator = op,
+            operator = displayOp,
             secondOperand = op2,
             expressionDisplay = displayExpr,
             liveResult = liveRes,

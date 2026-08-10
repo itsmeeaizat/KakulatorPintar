@@ -26,6 +26,10 @@ class CategoryProductRepository(
         return productDao.searchProducts(query)
     }
 
+    suspend fun findByBarcode(barcode: String): ProductEntity? {
+        return productDao.findByBarcode(barcode)
+    }
+
     suspend fun getCategoryById(id: Int): CategoryEntity? {
         return categoryDao.getCategoryById(id)
     }

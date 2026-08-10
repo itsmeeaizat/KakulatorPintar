@@ -92,7 +92,7 @@ object CalculatorEngine {
                 ch.isWhitespace() -> {
                     i++
                 }
-                ch == '+' || ch == '-' || ch == '−' || ch == '*' || ch == '×' || ch == '/' || ch == '÷' || ch == '%' || ch == '(' || ch == ')' -> {
+                ch == '+' || ch == '-' || ch == '−' || ch == '*' || ch == '×' || ch == '/' || ch == '÷' || ch == '%' || ch == '^' || ch == '(' || ch == ')' -> {
                     val isUnaryMinus = (ch == '-' || ch == '−') && (tokens.isEmpty() || isOperatorToken(tokens.last()) || tokens.last() == "(")
                     if (isUnaryMinus) {
                         val start = i
@@ -134,13 +134,14 @@ object CalculatorEngine {
     }
 
     private fun isOperatorToken(token: String): Boolean {
-        return token == "+" || token == "-" || token == "*" || token == "/" || token == "%"
+        return token == "+" || token == "-" || token == "*" || token == "/" || token == "%" || token == "^"
     }
 
     private fun precedence(op: String): Int {
         return when (op) {
             "+", "-" -> 1
             "*", "/", "%" -> 2
+            "^" -> 3
             else -> 0
         }
     }
@@ -225,6 +226,17 @@ object CalculatorEngine {
                     throw ArithmeticException("Kesalahan: Operasi modulus dengan angka nol tidak valid.")
                 }
                 a.remainder(b)
+            }
+            "^" -> {
+                try {
+                    val resDouble = Math.pow(a.toDouble(), b.toDouble())
+                    if (resDouble.isNaN() || resDouble.isInfinite()) {
+                        throw ArithmeticException("Hasil perpangkatan di luar jangkauan valid.")
+                    }
+                    BigDecimal(resDouble, mathContext)
+                } catch (e: Exception) {
+                    throw ArithmeticException("Gagal menghitung perpangkatan: ${e.message}")
+                }
             }
             else -> throw IllegalArgumentException("Operator '$op' tidak dikenal.")
         }

@@ -151,7 +151,7 @@ class EtalaseViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun addProduct(name: String, brand: String, price: Double, stock: Int, categoryId: Int) {
+    fun addProduct(name: String, brand: String, price: Double, stock: Int, categoryId: Int, barcode: String = "") {
         if (name.isBlank() || price <= 0.0) return
         viewModelScope.launch {
             repository.insertProduct(
@@ -160,13 +160,14 @@ class EtalaseViewModel(application: Application) : AndroidViewModel(application)
                     brand = brand.trim().ifEmpty { "Umum" },
                     price = price,
                     stock = stock,
-                    categoryId = categoryId
+                    categoryId = categoryId,
+                    barcode = barcode.trim()
                 )
             )
         }
     }
 
-    fun updateProduct(id: Int, name: String, brand: String, price: Double, stock: Int, categoryId: Int) {
+    fun updateProduct(id: Int, name: String, brand: String, price: Double, stock: Int, categoryId: Int, barcode: String = "") {
         if (name.isBlank() || price <= 0.0) return
         viewModelScope.launch {
             repository.updateProduct(
@@ -176,7 +177,8 @@ class EtalaseViewModel(application: Application) : AndroidViewModel(application)
                     brand = brand.trim().ifEmpty { "Umum" },
                     price = price,
                     stock = stock,
-                    categoryId = categoryId
+                    categoryId = categoryId,
+                    barcode = barcode.trim()
                 )
             )
         }
