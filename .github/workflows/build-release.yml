@@ -65,8 +65,11 @@ jobs:
             CURRENT_CODE=$(grep -m 1 'versionCode' "$BUILD_FILE" | grep -o '[0-9]*')
             if [ -n "$CURRENT_CODE" ]; then
               NEW_CODE=$((CURRENT_CODE + 1))
-              sed -i "s/versionCode [0-9]*/versionCode $NEW_CODE/g" "$BUILD_FILE"
-              sed -i "s/versionCode = [0-9]*/versionCode = $NEW_CODE/g" "$BUILD_FILE"
+              if [[ "$BUILD_FILE" == *.kts ]]; then
+                sed -i -E "s/versionCode[[:space:]]*=[[:space:]]*[0-9]+/versionCode = $NEW_CODE/g" "$BUILD_FILE"
+              else
+                sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode $NEW_CODE/g" "$BUILD_FILE"
+              fi
               echo "✅ VersionCode dinaikkan menjadi: $NEW_CODE"
             fi
           fi
@@ -81,13 +84,16 @@ jobs:
           key: gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
           restore-keys: gradle-
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
-
       - name: Build Release APK
         env:
           GRADLE_OPTS: "-Xmx2048m -Dfile.encoding=UTF-8"
-        run: ./gradlew assembleRelease || gradle assembleRelease
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x gradlew
+            ./gradlew assembleRelease
+          else
+            gradle assembleRelease
+          fi
 
       - name: Prepare Renamed APK
         id: prep_apk
