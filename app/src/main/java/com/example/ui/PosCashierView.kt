@@ -48,6 +48,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -1177,12 +1178,45 @@ fun PosCashierBottomSheet(
                                                     Icon(imageVector = Icons.Default.Remove, contentDescription = "Kurang", tint = TextDark)
                                                 }
 
-                                                Text(
-                                                    text = "${item.qty}",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 15.sp,
-                                                    modifier = Modifier.padding(horizontal = 8.dp)
-                                                )
+                                                var qtyText by remember(item.qty) { mutableStateOf(item.qty.toString()) }
+
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = Color.White,
+                                                    border = BorderStroke(1.5.dp, PurplePrimary),
+                                                    modifier = Modifier
+                                                        .width(52.dp)
+                                                        .height(34.dp)
+                                                ) {
+                                                    Box(
+                                                        contentAlignment = Alignment.Center,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    ) {
+                                                        BasicTextField(
+                                                            value = qtyText,
+                                                            onValueChange = { input ->
+                                                                val clean = input.filter { it.isDigit() }
+                                                                if (clean.length <= 5) {
+                                                                    qtyText = clean
+                                                                    val newQty = clean.toIntOrNull() ?: 0
+                                                                    val idx = cartItems.indexOf(item)
+                                                                    if (newQty > 0 && idx >= 0 && idx < cartItems.size) {
+                                                                        cartItems[idx] = item.copy(qty = newQty)
+                                                                    }
+                                                                }
+                                                            },
+                                                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                                            singleLine = true,
+                                                            textStyle = androidx.compose.ui.text.TextStyle(
+                                                                fontWeight = FontWeight.Bold,
+                                                                fontSize = 14.sp,
+                                                                textAlign = TextAlign.Center,
+                                                                color = TextDark
+                                                            ),
+                                                            modifier = Modifier.fillMaxWidth()
+                                                        )
+                                                    }
+                                                }
 
                                                 IconButton(
                                                     onClick = {

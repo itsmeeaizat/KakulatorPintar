@@ -3,8 +3,11 @@ package com.example.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -1120,20 +1124,161 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         )
     }
 
-    // Info Dialog
+    // Info Dialog (Tentang Aplikasi)
     if (showInfoDialog) {
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
-            title = { Text("Kalkulator Pintar") },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(PurplePrimaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = PurplePrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Tentang Aplikasi",
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = PurplePrimaryContainer
+                        ) {
+                            Text(
+                                text = "Versi 2.5 (Terbaru)",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PurplePrimary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+            },
             text = {
-                Column {
-                    Text("Aplikasi kalkulator pintar dengan fitur riwayat otomatis berbasis Room Database local persistence dan konverter satuan.")
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Dipoles dengan tema Professional Polish (Material Design 3).", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        text = "Aplikasi serbaguna terpadu yang menggabungkan Kalkulator Pintar, Sistem Mesin Kasir (POS), Manajemen Etalase Produk, dan Konverter Satuan.",
+                        fontSize = 13.sp,
+                        color = TextSubtle,
+                        lineHeight = 18.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = BorderDivider)
                     Spacer(modifier = Modifier.height(12.dp))
+
+                    // Bagian 1: Pembaruan Terbaru
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "🚀 Pembaruan Terbaru",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PurplePrimary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = "• Format Struk Thermal Baru: Alamat & Telepon Toko dipindahkan ke bagian bawah (di bawah nama Kasir) dengan pembatas garis tebal (====).",
+                                fontSize = 11.sp,
+                                color = TextDark,
+                                lineHeight = 16.sp
+                            )
+                            Text(
+                                text = "• Detail Riwayat Transaksi Rinci: Menampilkan rincian daftar produk, subtotal, diskon, PPN, serta Kartu Rincian Uang Pembeli (Uang Diterima & Kembalian).",
+                                fontSize = 11.sp,
+                                color = TextDark,
+                                lineHeight = 16.sp
+                            )
+                            Text(
+                                text = "• Pratinjau Struk Scrollable: Kertas pratinjau struk thermal dapat di-scroll ke bawah secara lancar saat belanjaan memiliki banyak barang.",
+                                fontSize = 11.sp,
+                                color = TextDark,
+                                lineHeight = 16.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Bagian 2: Fitur Utama
+                    Text(
+                        text = "✨ Fitur Utama Aplikasi",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "🧮 Kalkulator Pintar: Perhitungan matematika lengkap dengan riwayat otomatis berbasis Room Database local persistence.",
+                            fontSize = 11.sp,
+                            color = TextSubtle,
+                            lineHeight = 16.sp
+                        )
+                        Text(
+                            text = "🛒 Mesin Kasir (POS): Pemindaian Barcode/QR, keranjang belanja, kalkulasi diskon/PPN, bayar tunai & cetak/bagikan struk thermal.",
+                            fontSize = 11.sp,
+                            color = TextSubtle,
+                            lineHeight = 16.sp
+                        )
+                        Text(
+                            text = "📦 Etalase & Stok Produk: Kelola kategori, produk, harga, stok, serta buat Barcode & QR Code otomatis.",
+                            fontSize = 11.sp,
+                            color = TextSubtle,
+                            lineHeight = 16.sp
+                        )
+                        Text(
+                            text = "📐 Konverter Satuan: Konversi Panjang, Massa, Suhu, Luas, Volume, Kecepatan, & Mata Uang.",
+                            fontSize = 11.sp,
+                            color = TextSubtle,
+                            lineHeight = 16.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = BorderDivider)
+                    Spacer(modifier = Modifier.height(10.dp))
+
                     Text(
                         text = "Dibuat oleh Aizat",
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Cursive,
                         color = PurplePrimary
@@ -1141,8 +1286,12 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showInfoDialog = false }) {
-                    Text("Tutup")
+                Button(
+                    onClick = { showInfoDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text("Tutup", fontSize = 12.sp, color = Color.White)
                 }
             }
         )
