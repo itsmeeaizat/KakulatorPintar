@@ -952,7 +952,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
 
     // Full History Bottom Sheet
     if (showHistoryBottomSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
         ModalBottomSheet(
             onDismissRequest = { showHistoryBottomSheet = false },

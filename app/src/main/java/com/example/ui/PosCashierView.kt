@@ -462,7 +462,29 @@ object EWalletRepository {
 @Composable
 fun rememberBlockSheetSwipeNestedScrollConnection(): NestedScrollConnection {
     return remember {
-        object : NestedScrollConnection {}
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                // Consume all remaining vertical scroll delta to prevent ModalBottomSheet
+                // from dragging down or dismissing when scrolling or swiping content
+                return if (available.y != 0f) {
+                    Offset(0f, available.y)
+                } else {
+                    Offset.Zero
+                }
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                return if (available.y != 0f) {
+                    Velocity(0f, available.y)
+                } else {
+                    Velocity.Zero
+                }
+            }
+        }
     }
 }
 
@@ -479,7 +501,7 @@ fun PosCashierBottomSheet(
 
     var activeTab by remember { mutableStateOf(initialTab) } // 0: Transaksi Kasir, 1: Etalase, 2: Riwayat Penjualan
 
-    var storeName by remember { mutableStateOf("TOKO KASIR SERBA ADA") }
+    var storeName by remember { mutableStateOf("Alfamart") }
     var productName by remember { mutableStateOf("") }
     var productPrice by remember { mutableStateOf("") }
     var productQty by remember { mutableStateOf("1") }
@@ -2526,10 +2548,10 @@ fun ReceiptThermalModal(
 
     // Editable Field States
     var editableStoreName by remember { mutableStateOf(storeName) }
-    var editableAddressPhone by remember { mutableStateOf("Jl. Usaha Bersama No. 88\nTlp: 0812-3456-7890") }
-    var editableCashierName by remember { mutableStateOf("Utama") }
+    var editableAddressPhone by remember { mutableStateOf("Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168\nTlp: 08174887770") }
+    var editableCashierName by remember { mutableStateOf("Aizat") }
     var customNote by remember { mutableStateOf("") }
-    var editableFooterNote by remember { mutableStateOf("Terima Kasih Atas Kunjungan Anda!\nBarang Yg Sudah Dibeli Tdk Dpt Ditukar") }
+    var editableFooterNote by remember { mutableStateOf("Terima Kasih Atas Kunjungan Anda!\n--------------------------------\nSimpan struk ini sebagai tanda bukti.") }
 
     fun buildDefaultReceiptText(
         sName: String = editableStoreName,
@@ -2547,7 +2569,7 @@ fun ReceiptThermalModal(
             appendLine("No. Struk : $invoiceNo")
             appendLine("Tgl       : $currentDateStr")
             appendLine("Metode    : $paymentMethod")
-            appendLine("Kasir     : ${cashier.ifBlank { "Utama" }}")
+            appendLine("Kasir     : ${cashier.ifBlank { "Aizat" }}")
             appendLine("--------------------------------")
             cartItems.forEach { item ->
                 appendLine(item.name)
@@ -2953,16 +2975,16 @@ fun ReceiptThermalModal(
                             TextButton(
                                 onClick = {
                                     editableStoreName = storeName
-                                    editableAddressPhone = "Jl. Usaha Bersama No. 88\nTlp: 0812-3456-7890"
-                                    editableCashierName = "Utama"
+                                    editableAddressPhone = "Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168\nTlp: 08174887770"
+                                    editableCashierName = "Aizat"
                                     customNote = ""
-                                    editableFooterNote = "Terima Kasih Atas Kunjungan Anda!\nBarang Yg Sudah Dibeli Tdk Dpt Ditukar"
+                                    editableFooterNote = "Terima Kasih Atas Kunjungan Anda!\n--------------------------------\nSimpan struk ini sebagai tanda bukti."
                                     customReceiptText = buildDefaultReceiptText(
                                         sName = storeName,
-                                        addr = "Jl. Usaha Bersama No. 88\nTlp: 0812-3456-7890",
-                                        cashier = "Utama",
+                                        addr = "Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168\nTlp: 08174887770",
+                                        cashier = "Aizat",
                                         note = "",
-                                        footer = "Terima Kasih Atas Kunjungan Anda!\nBarang Yg Sudah Dibeli Tdk Dpt Ditukar"
+                                        footer = "Terima Kasih Atas Kunjungan Anda!\n--------------------------------\nSimpan struk ini sebagai tanda bukti."
                                     )
                                     isRawTextModified = false
                                     Toast.makeText(context, "↺ Teks Struk direset ke format default", Toast.LENGTH_SHORT).show()
@@ -3060,7 +3082,7 @@ fun generateReceiptBitmap(
     lines.add(Triple("No Struk : $invoiceNo", false, false))
     lines.add(Triple("Tanggal  : $dateStr", false, false))
     lines.add(Triple("Metode   : $paymentMethod", false, false))
-    lines.add(Triple("Kasir    : Utama", false, false))
+    lines.add(Triple("Kasir    : Aizat", false, false))
     lines.add(Triple("----------------------------------------", false, true))
 
     cartItems.forEach { item ->
@@ -3082,7 +3104,8 @@ fun generateReceiptBitmap(
     }
     lines.add(Triple("========================================", false, true))
     lines.add(Triple("Terima Kasih Atas Kunjungan Anda!", false, true))
-    lines.add(Triple("Disimpan melalui Kalkulator Pintar", false, true))
+    lines.add(Triple("----------------------------------------", false, true))
+    lines.add(Triple("Simpan struk ini sebagai tanda bukti.", false, true))
 
     val height = padding * 2 + lines.size * lineSpacing + 40
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
