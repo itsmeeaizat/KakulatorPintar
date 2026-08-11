@@ -2849,21 +2849,56 @@ fun TransactionDetailDialog(
                         Text("Total Pembayaran", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextDark)
                         Text(formatRupiah(transaction.totalPrice), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = PurplePrimary)
                     }
+                }
 
-                    if (transaction.paymentMethod.contains("Tunai", ignoreCase = true) || transaction.cashPaid > 0) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Kartu Rincian Uang Pembayaran Pembeli
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF0FDF4),
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Rincian Uang Pembeli",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF166534)
+                            )
+                            Text(
+                                text = transaction.paymentMethod,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF15803D)
+                            )
+                        }
+                        HorizontalDivider(color = Color(0xFFDCFCE7))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Tunai Diterima", fontSize = 11.sp, color = TextSubtle)
-                            Text(formatRupiah(transaction.cashPaid), fontSize = 11.sp, color = TextDark)
+                            Text("Uang Dibayar Pembeli", fontSize = 12.sp, color = Color(0xFF15803D))
+                            val paidVal = if (transaction.cashPaid > 0) transaction.cashPaid else transaction.totalPrice
+                            Text(formatRupiah(paidVal), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF166534))
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text("Kembalian", fontSize = 11.sp, color = TextSubtle)
-                            Text(formatRupiah(transaction.change), fontSize = 11.sp, color = TextDark)
+                            Text("Uang Kembalian", fontSize = 12.sp, color = Color(0xFF15803D))
+                            Text(formatRupiah(transaction.change), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF166534))
                         }
                     }
                 }
@@ -3139,39 +3174,48 @@ fun ReceiptThermalModal(
                     }
                 }
 
-                // Tampilan Struk Thermal Kertas Putih Real-time
-                Card(
-                    shape = RoundedCornerShape(8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                // Tampilan Struk Thermal Kertas Putih Real-time (Scrollable untuk struk panjang)
+                Box(
                     modifier = Modifier
-                        .width(320.dp)
-                        .border(1.dp, BorderDivider, RoundedCornerShape(8.dp))
+                        .fillMaxWidth()
+                        .heightIn(max = 380.dp)
+                        .verticalScroll(rememberScrollState()),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    Column(
+                    Card(
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                            .width(320.dp)
+                            .padding(vertical = 4.dp)
+                            .border(1.dp, BorderDivider, RoundedCornerShape(8.dp))
                     ) {
-                        customReceiptText.lines().forEachIndexed { index, line ->
-                            val trimmed = line.trim()
-                            val isHeader = index == 0
-                            val isCentered = isHeader || trimmed.startsWith("==") || trimmed.startsWith("--") ||
-                                    trimmed.startsWith("Terima Kasih", ignoreCase = true) ||
-                                    trimmed.startsWith("Barang Yg", ignoreCase = true) ||
-                                    trimmed.startsWith("Simpan Struk", ignoreCase = true)
-                            val isBold = isHeader || trimmed.startsWith("TOTAL") || trimmed.startsWith("==")
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            customReceiptText.lines().forEachIndexed { index, line ->
+                                val trimmed = line.trim()
+                                val isHeader = index == 0
+                                val isCentered = isHeader || trimmed.startsWith("==") || trimmed.startsWith("--") ||
+                                        trimmed.startsWith("Terima Kasih", ignoreCase = true) ||
+                                        trimmed.startsWith("Barang Yg", ignoreCase = true) ||
+                                        trimmed.startsWith("Simpan", ignoreCase = true)
+                                val isBold = isHeader || trimmed.startsWith("TOTAL") || trimmed.startsWith("==")
 
-                            Text(
-                                text = line.ifEmpty { " " },
-                                fontSize = if (isHeader) 15.sp else 11.sp,
-                                fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
-                                fontFamily = FontFamily.Monospace,
-                                textAlign = if (isCentered) TextAlign.Center else TextAlign.Start,
-                                color = Color.Black,
-                                modifier = Modifier.fillMaxWidth()
-                            )
+                                Text(
+                                    text = line.ifEmpty { " " },
+                                    fontSize = if (isHeader) 15.sp else 11.sp,
+                                    fontWeight = if (isBold) FontWeight.Bold else FontWeight.Normal,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = if (isCentered) TextAlign.Center else TextAlign.Start,
+                                    color = Color.Black,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
                         }
                     }
                 }
@@ -3640,7 +3684,7 @@ fun generateReceiptBitmapFromText(rawText: String): Bitmap {
         val isCentered = isHeader || trimmed.startsWith("==") || trimmed.startsWith("--") ||
                 trimmed.startsWith("Terima Kasih", ignoreCase = true) ||
                 trimmed.startsWith("Barang Yg", ignoreCase = true) ||
-                trimmed.startsWith("Simpan Struk", ignoreCase = true)
+                trimmed.startsWith("Simpan", ignoreCase = true)
         val isBold = isHeader || trimmed.startsWith("TOTAL") || trimmed.startsWith("==")
 
         paint.typeface = if (isBold) Typeface.create(Typeface.MONOSPACE, Typeface.BOLD) else Typeface.MONOSPACE
