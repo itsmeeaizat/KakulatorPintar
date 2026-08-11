@@ -28,6 +28,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -646,6 +649,7 @@ fun PosCashierBottomSheet(
     // State Riwayat Transaksi
     var transactionsList by remember { mutableStateOf(emptyList<TransactionRecord>()) }
     var selectedHistoryTransaction by remember { mutableStateOf<TransactionRecord?>(null) }
+    var selectedDetailTransaction by remember { mutableStateOf<TransactionRecord?>(null) }
 
     LaunchedEffect(activeTab) {
         if (activeTab == 1) {
@@ -1928,12 +1932,31 @@ fun PosCashierBottomSheet(
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Text(
-                                                text = tx.id,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = PurplePrimary
-                                            )
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                Text(
+                                                    text = tx.id,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = PurplePrimary
+                                                )
+                                                Surface(
+                                                    onClick = { selectedDetailTransaction = tx },
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    color = Color(0xFFF1F5F9),
+                                                    border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                                                ) {
+                                                    Text(
+                                                        text = "Detail",
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF334155),
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                                    )
+                                                }
+                                            }
                                             Text(
                                                 text = tx.dateFormatted,
                                                 fontSize = 11.sp,
@@ -1963,7 +1986,26 @@ fun PosCashierBottomSheet(
                                                 color = PurplePrimary
                                             )
 
-                                            Row {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Surface(
+                                                    onClick = { selectedDetailTransaction = tx },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = Color(0xFFF1F5F9),
+                                                    border = BorderStroke(1.dp, Color(0xFFCBD5E1))
+                                                ) {
+                                                    Text(
+                                                        text = "Detail",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = Color(0xFF334155),
+                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                                    )
+                                                }
+
+                                                Spacer(modifier = Modifier.width(6.dp))
+
                                                 Surface(
                                                     onClick = { selectedHistoryTransaction = tx },
                                                     shape = RoundedCornerShape(8.dp),
@@ -2169,6 +2211,19 @@ fun PosCashierBottomSheet(
             existingInvoiceNo = tx.id,
             existingDateStr = tx.dateFormatted,
             onDismiss = { selectedHistoryTransaction = null }
+        )
+    }
+
+    // Modal Detail Transaksi Penjualan Produk Rinci
+    if (selectedDetailTransaction != null) {
+        val tx = selectedDetailTransaction!!
+        TransactionDetailDialog(
+            transaction = tx,
+            onDismiss = { selectedDetailTransaction = null },
+            onShowReceipt = {
+                selectedHistoryTransaction = tx
+                selectedDetailTransaction = null
+            }
         )
     }
 }
@@ -2515,6 +2570,337 @@ fun UnknownBarcodeAlertDialog(
 }
 
 /**
+ * Modal Dialog Detail Riwayat Penjualan Produk Rinci
+ */
+@Composable
+fun TransactionDetailDialog(
+    transaction: TransactionRecord,
+    onDismiss: () -> Unit,
+    onShowReceipt: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp)
+            ) {
+                // Header Modal
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(PurplePrimaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Receipt,
+                                contentDescription = null,
+                                tint = PurplePrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = "Detail Riwayat Transaksi",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = TextDark
+                            )
+                            Text(
+                                text = transaction.id,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PurplePrimary
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Tutup",
+                            tint = TextSubtle
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = BorderDivider)
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Informasi Tanggal, Waktu & Kasir
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SurfaceCanvas)
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Tanggal & Waktu", fontSize = 12.sp, color = TextSubtle)
+                        Text(
+                            text = transaction.dateFormatted,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextDark
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Nama Toko", fontSize = 12.sp, color = TextSubtle)
+                        Text(
+                            text = transaction.storeName,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextDark
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Metode Pembayaran", fontSize = 12.sp, color = TextSubtle)
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = Color(0xFFE2E8F0)
+                        ) {
+                            Text(
+                                text = transaction.paymentMethod,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF334155),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Judul List Produk
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Rincian Produk Dibeli",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextDark
+                    )
+                    Text(
+                        text = "${transaction.items.sumOf { it.qty }} pcs (${transaction.items.size} barang)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSubtle
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Scrollable List Produk Dibeli
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 220.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    transaction.items.forEachIndexed { index, item ->
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFF8FAFC),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Text(
+                                        text = "${index + 1}. ${item.name}",
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextDark,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Text(
+                                        text = formatRupiah(item.subtotal),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PurplePrimary
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Harga Satuan: ${formatRupiah(item.price)}",
+                                        fontSize = 11.sp,
+                                        color = TextSubtle
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = PurplePrimaryContainer
+                                    ) {
+                                        Text(
+                                            text = "Beli: ${item.qty} pcs",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = PurplePrimary,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = BorderDivider)
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Rincian Biaya
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Subtotal", fontSize = 12.sp, color = TextSubtle)
+                        Text(formatRupiah(transaction.subtotal), fontSize = 12.sp, color = TextDark)
+                    }
+                    if (transaction.discount > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Diskon", fontSize = 12.sp, color = TextSubtle)
+                            Text("-${formatRupiah(transaction.discount)}", fontSize = 12.sp, color = Color(0xFFDC2626), fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (transaction.tax > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("PPN", fontSize = 12.sp, color = TextSubtle)
+                            Text("+${formatRupiah(transaction.tax)}", fontSize = 12.sp, color = TextDark)
+                        }
+                    }
+                    if (transaction.serviceFee > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Biaya Layanan", fontSize = 12.sp, color = TextSubtle)
+                            Text("+${formatRupiah(transaction.serviceFee)}", fontSize = 12.sp, color = TextDark)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Total Pembayaran", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextDark)
+                        Text(formatRupiah(transaction.totalPrice), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = PurplePrimary)
+                    }
+
+                    if (transaction.paymentMethod.contains("Tunai", ignoreCase = true) || transaction.cashPaid > 0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Tunai Diterima", fontSize = 11.sp, color = TextSubtle)
+                            Text(formatRupiah(transaction.cashPaid), fontSize = 11.sp, color = TextDark)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Kembalian", fontSize = 11.sp, color = TextSubtle)
+                            Text(formatRupiah(transaction.change), fontSize = 11.sp, color = TextDark)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Tutup", fontSize = 12.sp)
+                    }
+
+                    Button(
+                        onClick = {
+                            onDismiss()
+                            onShowReceipt()
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary)
+                    ) {
+                        Text("Lihat Struk", fontSize = 12.sp, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
  * Modal Pratinjau Struk Kasir Thermal (58mm/80mm style) dengan Fitur Cetak / Print & Share & Auto Save
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2548,7 +2934,7 @@ fun ReceiptThermalModal(
 
     // Editable Field States
     var editableStoreName by remember { mutableStateOf(storeName) }
-    var editableAddressPhone by remember { mutableStateOf("Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168\nTlp: 08174887770") }
+    var editableAddressPhone by remember { mutableStateOf("Telepon: 08174887770\nAlamat: Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168") }
     var editableCashierName by remember { mutableStateOf("Aizat") }
     var customNote by remember { mutableStateOf("") }
     var editableFooterNote by remember { mutableStateOf("Terima Kasih Atas Kunjungan Anda!\n--------------------------------\nSimpan struk ini sebagai tanda bukti.") }
@@ -2562,20 +2948,14 @@ fun ReceiptThermalModal(
     ): String {
         return buildString {
             appendLine(sName.ifBlank { storeName }.uppercase())
-            if (addr.isNotBlank()) {
-                appendLine(addr.trim())
-            }
             appendLine("================================")
             appendLine("No. Struk : $invoiceNo")
-            appendLine("Tgl       : $currentDateStr")
-            appendLine("Metode    : $paymentMethod")
-            appendLine("Kasir     : ${cashier.ifBlank { "Aizat" }}")
-            appendLine("--------------------------------")
+            appendLine("Produk:")
             cartItems.forEach { item ->
                 appendLine(item.name)
                 appendLine("  ${item.qty} x ${formatRupiah(item.price)} = ${formatRupiah(item.subtotal)}")
             }
-            appendLine("--------------------------------")
+            appendLine()
             appendLine("SUBTOTAL  : ${formatRupiah(subtotal)}")
             if (discount > 0) appendLine("DISKON    : -${formatRupiah(discount)}")
             if (tax > 0) appendLine("PPN (11%) : +${formatRupiah(tax)}")
@@ -2585,15 +2965,31 @@ fun ReceiptThermalModal(
                 appendLine("BAYAR     : ${formatRupiah(cashPaid)}")
                 appendLine("KEMBALI   : ${formatRupiah(change)}")
             }
+            appendLine()
+            appendLine("Metode    : $paymentMethod")
+            appendLine("Tgl       : $currentDateStr")
             if (note.isNotBlank()) {
-                appendLine("--------------------------------")
                 appendLine("Catatan   : ${note.trim()}")
             }
-            appendLine("================================")
+            appendLine()
+            appendLine("-------------------------------")
+            appendLine()
+            appendLine("Kasir     : ${cashier.ifBlank { "Aizat" }}")
+            if (addr.isNotBlank()) {
+                appendLine(addr.trim())
+            } else {
+                appendLine("Telepon: 08174887770")
+                appendLine("Alamat: Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168")
+            }
+            appendLine("-------------------------------")
             if (footer.isNotBlank()) {
                 appendLine(footer.trim())
-                appendLine("================================")
+            } else {
+                appendLine("Terima Kasih Atas Kunjungan Anda!")
+                appendLine("--------------------------------")
+                appendLine("Simpan struk ini sebagai tanda bukti.")
             }
+            appendLine("================================")
         }
     }
 
@@ -2975,13 +3371,13 @@ fun ReceiptThermalModal(
                             TextButton(
                                 onClick = {
                                     editableStoreName = storeName
-                                    editableAddressPhone = "Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168\nTlp: 08174887770"
+                                    editableAddressPhone = "Telepon: 08174887770\nAlamat: Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168"
                                     editableCashierName = "Aizat"
                                     customNote = ""
                                     editableFooterNote = "Terima Kasih Atas Kunjungan Anda!\n--------------------------------\nSimpan struk ini sebagai tanda bukti."
                                     customReceiptText = buildDefaultReceiptText(
                                         sName = storeName,
-                                        addr = "Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168\nTlp: 08174887770",
+                                        addr = "Telepon: 08174887770\nAlamat: Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168",
                                         cashier = "Aizat",
                                         note = "",
                                         footer = "Terima Kasih Atas Kunjungan Anda!\n--------------------------------\nSimpan struk ini sebagai tanda bukti."
@@ -3077,35 +3473,45 @@ fun generateReceiptBitmap(
 
     val lines = mutableListOf<Triple<String, Boolean, Boolean>>()
     lines.add(Triple(storeName.uppercase(), true, true))
-    lines.add(Triple("POS KASIR RESMI", false, true))
     lines.add(Triple("========================================", false, true))
-    lines.add(Triple("No Struk : $invoiceNo", false, false))
-    lines.add(Triple("Tanggal  : $dateStr", false, false))
-    lines.add(Triple("Metode   : $paymentMethod", false, false))
-    lines.add(Triple("Kasir    : Aizat", false, false))
-    lines.add(Triple("----------------------------------------", false, true))
+    lines.add(Triple("No. Struk : $invoiceNo", false, false))
+    lines.add(Triple("Produk:", true, false))
 
     cartItems.forEach { item ->
         lines.add(Triple(item.name, true, false))
-        val subtotalStr = "Rp ${item.subtotal}"
-        lines.add(Triple("  ${item.qty} x Rp ${item.price} = $subtotalStr", false, false))
+        val subtotalStr = formatRupiah(item.subtotal)
+        lines.add(Triple("  ${item.qty} x ${formatRupiah(item.price)} = $subtotalStr", false, false))
     }
 
-    lines.add(Triple("----------------------------------------", false, true))
-    lines.add(Triple("SUBTOTAL : Rp $subtotal", false, false))
-    if (discount > 0) lines.add(Triple("DISKON   : -Rp $discount", false, false))
-    if (tax > 0) lines.add(Triple("PPN 11%  : +Rp $tax", false, false))
-    if (serviceFee > 0) lines.add(Triple("B.LAYANAN: +Rp $serviceFee", false, false))
-    lines.add(Triple("TOTAL    : Rp $totalPrice", true, false))
+    lines.add(Triple("", false, false))
+    lines.add(Triple("SUBTOTAL  : ${formatRupiah(subtotal)}", false, false))
+    if (discount > 0) lines.add(Triple("DISKON    : -${formatRupiah(discount)}", false, false))
+    if (tax > 0) lines.add(Triple("PPN (11%) : +${formatRupiah(tax)}", false, false))
+    if (serviceFee > 0) lines.add(Triple("B.LAYANAN : +${formatRupiah(serviceFee)}", false, false))
+    lines.add(Triple("TOTAL     : ${formatRupiah(totalPrice)}", true, false))
 
     if (cashPaid > 0) {
-        lines.add(Triple("BAYAR    : Rp $cashPaid", false, false))
-        lines.add(Triple("KEMBALI  : Rp $change", false, false))
+        lines.add(Triple("BAYAR     : ${formatRupiah(cashPaid)}", false, false))
+        lines.add(Triple("KEMBALI   : ${formatRupiah(change)}", false, false))
     }
-    lines.add(Triple("========================================", false, true))
+
+    lines.add(Triple("", false, false))
+    lines.add(Triple("Metode    : $paymentMethod", false, false))
+    lines.add(Triple("Tgl       : $dateStr", false, false))
+
+    lines.add(Triple("", false, false))
+    lines.add(Triple("----------------------------------------", false, true))
+    lines.add(Triple("", false, false))
+
+    lines.add(Triple("Kasir     : Aizat", false, false))
+    lines.add(Triple("Telepon: 08174887770", false, false))
+    lines.add(Triple("Alamat: Jl. Palka 23 Km, Kp. Masigit, Barugbug, Kec. Padarincang, Serang, Banten Indonesia 42168", false, false))
+
+    lines.add(Triple("----------------------------------------", false, true))
     lines.add(Triple("Terima Kasih Atas Kunjungan Anda!", false, true))
     lines.add(Triple("----------------------------------------", false, true))
     lines.add(Triple("Simpan struk ini sebagai tanda bukti.", false, true))
+    lines.add(Triple("========================================", false, true))
 
     val height = padding * 2 + lines.size * lineSpacing + 40
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
