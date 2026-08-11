@@ -27,23 +27,58 @@ android {
     create("release") {
       val customKeystorePath = System.getenv("KEYSTORE_PATH") ?: "${rootDir}/my-upload-key.jks"
       val customKeystoreFile = file(customKeystorePath)
-      if (customKeystoreFile.exists()) {
-        storeFile = customKeystoreFile
-        storePassword = System.getenv("STORE_PASSWORD") ?: ""
-        keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
-        keyPassword = System.getenv("KEY_PASSWORD") ?: ""
-      } else {
-        storeFile = file("${rootDir}/debug.keystore")
+      val debugKeystoreFile = file("${rootDir}/debug.keystore")
+      val autoKeystoreFile = file("${rootDir}/release-auto.keystore")
+
+      when {
+        customKeystoreFile.exists() -> {
+          storeFile = customKeystoreFile
+          storePassword = System.getenv("STORE_PASSWORD") ?: "android"
+          keyAlias = System.getenv("KEY_ALIAS") ?: "upload"
+          keyPassword = System.getenv("KEY_PASSWORD") ?: "android"
+        }
+        debugKeystoreFile.exists() -> {
+          storeFile = debugKeystoreFile
+          storePassword = "android"
+          keyAlias = "androiddebugkey"
+          keyPassword = "android"
+        }
+        else -> {
+          if (!autoKeystoreFile.exists()) {
+            try {
+              val keytoolCmd = arrayOf(
+                "keytool", "-genkeypair",
+                "-keystore", autoKeystoreFile.absolutePath,
+                "-storepass", "android",
+                "-alias", "releasekey",
+                "-keypass", "android",
+                "-dname", "CN=Aizat, OU=Developer, O=App, L=City, ST=State, C=ID",
+                "-keyalg", "RSA",
+                "-keysize", "2048",
+                "-validity", "10000"
+              )
+              ProcessBuilder(*keytoolCmd).inheritIO().start().waitFor()
+            } catch (e: Exception) {
+              println("Could not auto-generate keystore: ${e.message}")
+            }
+          }
+          if (autoKeystoreFile.exists()) {
+            storeFile = autoKeystoreFile
+            storePassword = "android"
+            keyAlias = "releasekey"
+            keyPassword = "android"
+          }
+        }
+      }
+    }
+    create("debugConfig") {
+      val debugKeystoreFile = file("${rootDir}/debug.keystore")
+      if (debugKeystoreFile.exists()) {
+        storeFile = debugKeystoreFile
         storePassword = "android"
         keyAlias = "androiddebugkey"
         keyPassword = "android"
       }
-    }
-    create("debugConfig") {
-      storeFile = file("${rootDir}/debug.keystore")
-      storePassword = "android"
-      keyAlias = "androiddebugkey"
-      keyPassword = "android"
     }
   }
 
