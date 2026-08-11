@@ -105,7 +105,18 @@ import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -444,6 +455,50 @@ object EWalletRepository {
     }
 }
 
+/**
+ * NestedScrollConnection dan PointerInput untuk mencegah ModalBottomSheet tertutup saat menggeser/scroll konten di tengah.
+ * Struk / Etalase / Kasir hanya akan tertutup jika pengguna menggeser garis penarik (drag handle) di paling atas.
+ */
+@Composable
+fun rememberBlockSheetSwipeNestedScrollConnection(): NestedScrollConnection {
+    return remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                if (available.y != 0f) {
+                    return Offset(0f, available.y)
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                return available
+            }
+        }
+    }
+}
+
+fun Modifier.blockSheetDragFromContent(): Modifier = this
+    .pointerInput(Unit) {
+        awaitEachGesture {
+            awaitFirstDown(pass = PointerEventPass.Initial)
+            do {
+                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                val change = event.changes.firstOrNull()
+                if (change != null && change.pressed) {
+                    val yDiff = change.positionChange().y
+                    val xDiff = change.positionChange().x
+                    if (yDiff > 0f && kotlin.math.abs(yDiff) >= kotlin.math.abs(xDiff)) {
+                        change.consume()
+                    }
+                }
+            } while (event.changes.any { it.pressed })
+        }
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PosCashierBottomSheet(
@@ -607,6 +662,8 @@ fun PosCashierBottomSheet(
         }
     }
 
+    val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -617,6 +674,8 @@ fun PosCashierBottomSheet(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .blockSheetDragFromContent()
+                .nestedScroll(blockSheetSwipe)
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             // Header Bar
@@ -2541,6 +2600,8 @@ fun ReceiptThermalModal(
         }
     }
 
+    val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = receiptState,
@@ -2550,6 +2611,8 @@ fun ReceiptThermalModal(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .blockSheetDragFromContent()
+                .nestedScroll(blockSheetSwipe)
                 .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -3316,6 +3379,8 @@ fun QrisSetupDialog(
         }
     }
 
+    val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -3324,6 +3389,8 @@ fun QrisSetupDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .blockSheetDragFromContent()
+                .nestedScroll(blockSheetSwipe)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -3590,6 +3657,8 @@ fun QrisPaymentDialog(
     val nmid = remember { QrisRepository.getQrisNmid(context) }
     val savedImagePath = remember { QrisRepository.getQrisImagePath(context) }
 
+    val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -3598,6 +3667,8 @@ fun QrisPaymentDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .blockSheetDragFromContent()
+                .nestedScroll(blockSheetSwipe)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -3933,6 +4004,8 @@ fun EWalletSetupDialog(
         else -> PurplePrimary
     }
 
+    val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -3941,6 +4014,8 @@ fun EWalletSetupDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .blockSheetDragFromContent()
+                .nestedScroll(blockSheetSwipe)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -4368,6 +4443,8 @@ fun EWalletPaymentDialog(
         Toast.makeText(context, "$label tersalin ke clipboard", Toast.LENGTH_SHORT).show()
     }
 
+    val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -4376,6 +4453,8 @@ fun EWalletPaymentDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .blockSheetDragFromContent()
+                .nestedScroll(blockSheetSwipe)
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

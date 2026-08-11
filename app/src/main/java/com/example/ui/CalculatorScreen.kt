@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PointOfSale
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.History
@@ -51,9 +52,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -67,6 +71,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -97,6 +108,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
     var showMenu by remember { mutableStateOf(false) }
     var showHistoryBottomSheet by remember { mutableStateOf(false) }
     var showPosCashierSheet by remember { mutableStateOf(false) }
+    var showUnitConverterSheet by remember { mutableStateOf(false) }
     var posInitialTab by remember { mutableStateOf(0) }
     var showInfoDialog by remember { mutableStateOf(false) }
     var showClearConfirmDialog by remember { mutableStateOf(false) }
@@ -129,6 +141,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
             HeaderBar(
                 userName = uiState.currentUser?.username ?: "Pengguna Utama",
                 onHistoryClick = { showHistoryBottomSheet = true },
+                onUnitConverterClick = { showUnitConverterSheet = true },
                 onPosCashierClick = {
                     posInitialTab = 0
                     showPosCashierSheet = true
@@ -143,6 +156,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
             // Action Sheet Menu (Modern Instagram/iOS Style)
             if (showMenu) {
                 val optionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
                 ModalBottomSheet(
                     onDismissRequest = { showMenu = false },
                     sheetState = optionsSheetState,
@@ -153,6 +167,8 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .blockSheetDragFromContent()
+                            .nestedScroll(blockSheetSwipe)
                             .padding(horizontal = 20.dp, vertical = 8.dp)
                     ) {
                         Box(
@@ -194,6 +210,20 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                                 showMenu = false
                                 posInitialTab = 1
                                 showPosCashierSheet = true
+                            }
+                        )
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = BorderDivider.copy(alpha = 0.5f))
+
+                        // Menu Item 1.5: Konverter Satuan
+                        ActionSheetItem(
+                            title = "Konverter Satuan (Panjang, Berat, Suhu)",
+                            icon = Icons.Default.SwapHoriz,
+                            iconTint = PurplePrimary,
+                            textColor = TextDark,
+                            onClick = {
+                                showMenu = false
+                                showUnitConverterSheet = true
                             }
                         )
 
@@ -323,10 +353,47 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                                 verticalArrangement = Arrangement.spacedBy(0.dp),
                                 horizontalAlignment = Alignment.End
                             ) {
-                                items(uiState.historyList) { item ->
-                                    HistoryPreviewRow(
-                                        item = item,
-                                        onClick = { viewModel.onHistoryItemSelect(item) }
+                                items(uiState.historyList, key = { it.id }) { item ->
+                                    val dismissState = rememberSwipeToDismissBoxState(
+                                        confirmValueChange = { dismissValue ->
+                                            if (dismissValue == SwipeToDismissBoxValue.EndToStart || dismissValue == SwipeToDismissBoxValue.StartToEnd) {
+                                                viewModel.onDeleteHistoryItem(item.id)
+                                                true
+                                            } else false
+                                        }
+                                    )
+                                    SwipeToDismissBox(
+                                        state = dismissState,
+                                        enableDismissFromStartToEnd = true,
+                                        enableDismissFromEndToStart = true,
+                                        backgroundContent = {
+                                            val isSwiping = dismissState.targetValue != SwipeToDismissBoxValue.Settled
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxSize()
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(if (isSwiping) MaterialTheme.colorScheme.errorContainer else Color.Transparent)
+                                                    .padding(horizontal = 12.dp),
+                                                contentAlignment = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd
+                                            ) {
+                                                if (isSwiping) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Delete,
+                                                        contentDescription = "Hapus",
+                                                        tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        content = {
+                                            Surface(color = Color.Transparent) {
+                                                HistoryPreviewRow(
+                                                    item = item,
+                                                    onClick = { viewModel.onHistoryItemSelect(item) }
+                                                )
+                                            }
+                                        }
                                     )
                                 }
                             }
@@ -425,7 +492,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         KeypadButton(
-                            text = "🔢 Standar",
+                            text = "Standar",
                             containerColor = if (!uiState.isScientificMode) PurplePrimary else UtilityKeyContainer,
                             textColor = if (!uiState.isScientificMode) Color.White else OnUtilityKeyContainer,
                             height = if (uiState.isScientificMode) 50.dp else 56.dp,
@@ -438,7 +505,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                         )
 
                         KeypadButton(
-                            text = "🧪 Sains",
+                            text = "Sains",
                             containerColor = if (uiState.isScientificMode) PurplePrimary else UtilityKeyContainer,
                             textColor = if (uiState.isScientificMode) Color.White else OnUtilityKeyContainer,
                             height = if (uiState.isScientificMode) 50.dp else 56.dp,
@@ -876,9 +943,17 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         )
     }
 
+    // Fitur Konverter Satuan Bottom Sheet
+    if (showUnitConverterSheet) {
+        UnitConverterSheet(
+            onDismiss = { showUnitConverterSheet = false }
+        )
+    }
+
     // Full History Bottom Sheet
     if (showHistoryBottomSheet) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
+        val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
         ModalBottomSheet(
             onDismissRequest = { showHistoryBottomSheet = false },
             sheetState = sheetState,
@@ -888,6 +963,8 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .fillMaxHeight(0.7f)
+                    .blockSheetDragFromContent()
+                    .nestedScroll(blockSheetSwipe)
                     .padding(20.dp)
             ) {
                 Row(
@@ -960,13 +1037,57 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(uiState.historyList, key = { it.id }) { item ->
-                            HistoryDetailCard(
-                                item = item,
-                                onSelect = {
-                                    viewModel.onHistoryItemSelect(item)
-                                    showHistoryBottomSheet = false
+                            val dismissState = rememberSwipeToDismissBoxState(
+                                confirmValueChange = { dismissValue ->
+                                    if (dismissValue == SwipeToDismissBoxValue.EndToStart || dismissValue == SwipeToDismissBoxValue.StartToEnd) {
+                                        viewModel.onDeleteHistoryItem(item.id)
+                                        true
+                                    } else false
+                                }
+                            )
+                            SwipeToDismissBox(
+                                state = dismissState,
+                                enableDismissFromStartToEnd = true,
+                                enableDismissFromEndToStart = true,
+                                backgroundContent = {
+                                    val isSwiping = dismissState.targetValue != SwipeToDismissBoxValue.Settled
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(if (isSwiping) MaterialTheme.colorScheme.errorContainer else Color.Transparent)
+                                            .padding(horizontal = 20.dp),
+                                        contentAlignment = if (dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd
+                                    ) {
+                                        if (isSwiping) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Delete,
+                                                    contentDescription = "Hapus Item",
+                                                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "Hapus",
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = MaterialTheme.colorScheme.onErrorContainer
+                                                )
+                                            }
+                                        }
+                                    }
                                 },
-                                onDelete = { viewModel.onDeleteHistoryItem(item.id) }
+                                content = {
+                                    HistoryDetailCard(
+                                        item = item,
+                                        onSelect = {
+                                            viewModel.onHistoryItemSelect(item)
+                                            showHistoryBottomSheet = false
+                                        },
+                                        onDelete = { viewModel.onDeleteHistoryItem(item.id) }
+                                    )
+                                }
                             )
                         }
                     }
@@ -1003,12 +1124,20 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
     if (showInfoDialog) {
         AlertDialog(
             onDismissRequest = { showInfoDialog = false },
-            title = { Text("Kalkulator Riwayat") },
+            title = { Text("Kalkulator Pintar") },
             text = {
                 Column {
-                    Text("Aplikasi kalkulator pintar dengan fitur riwayat otomatis berbasis Room Database local persistence.")
+                    Text("Aplikasi kalkulator pintar dengan fitur riwayat otomatis berbasis Room Database local persistence dan konverter satuan.")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Dipoles dengan tema Professional Polish (Material Design 3).", fontSize = 12.sp, color = MaterialTheme.colorScheme.outline)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Dibuat oleh Aizat",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Cursive,
+                        color = PurplePrimary
+                    )
                 }
             },
             confirmButton = {
@@ -1024,6 +1153,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
 fun HeaderBar(
     userName: String,
     onHistoryClick: () -> Unit,
+    onUnitConverterClick: () -> Unit,
     onPosCashierClick: () -> Unit,
     onEtalaseClick: () -> Unit,
     onMenuClick: () -> Unit
@@ -1072,6 +1202,16 @@ fun HeaderBar(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(
+                onClick = onUnitConverterClick,
+                modifier = Modifier.testTag("btn_header_unit_converter")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SwapHoriz,
+                    contentDescription = "Konverter Satuan",
+                    tint = PurplePrimary
+                )
+            }
             IconButton(
                 onClick = onPosCashierClick,
                 modifier = Modifier.testTag("btn_header_pos")
