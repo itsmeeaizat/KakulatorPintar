@@ -28,12 +28,12 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
 import java.text.DecimalFormat
 
-enum class UnitCategory(val label: String, val icon: String) {
-    LENGTH("Panjang", "📏"),
-    WEIGHT("Berat", "⚖️"),
-    TEMPERATURE("Suhu", "🌡️"),
-    AREA("Luas", "📐"),
-    VOLUME("Volume", "🧪")
+enum class UnitCategory(val label: String) {
+    LENGTH("Panjang"),
+    WEIGHT("Berat"),
+    TEMPERATURE("Suhu"),
+    AREA("Luas"),
+    VOLUME("Volume")
 }
 
 data class UnitItem(val code: String, val name: String, val factorToBase: Double)
@@ -172,7 +172,12 @@ fun UnitConverterSheet(
                             .background(PurplePrimaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "📏", fontSize = 18.sp)
+                        Icon(
+                            imageVector = Icons.Default.SwapHoriz,
+                            contentDescription = null,
+                            tint = OnPurplePrimaryContainer,
+                            modifier = Modifier.size(20.dp)
+                        )
                     }
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
@@ -206,7 +211,7 @@ fun UnitConverterSheet(
                         },
                         label = {
                             Text(
-                                text = "${category.icon} ${category.label}",
+                                text = category.label,
                                 fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )

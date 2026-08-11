@@ -21,6 +21,7 @@ import android.provider.MediaStore
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -456,48 +457,16 @@ object EWalletRepository {
 }
 
 /**
- * NestedScrollConnection dan PointerInput untuk mencegah ModalBottomSheet tertutup saat menggeser/scroll konten di tengah.
- * Struk / Etalase / Kasir hanya akan tertutup jika pengguna menggeser garis penarik (drag handle) di paling atas.
+ * NestedScrollConnection & Modifier passthrough agar scroll dan swipe pada konten/produk/daftar dapat digeser secara alami dan lancar.
  */
 @Composable
 fun rememberBlockSheetSwipeNestedScrollConnection(): NestedScrollConnection {
     return remember {
-        object : NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource
-            ): Offset {
-                if (available.y != 0f) {
-                    return Offset(0f, available.y)
-                }
-                return Offset.Zero
-            }
-
-            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-                return available
-            }
-        }
+        object : NestedScrollConnection {}
     }
 }
 
 fun Modifier.blockSheetDragFromContent(): Modifier = this
-    .pointerInput(Unit) {
-        awaitEachGesture {
-            awaitFirstDown(pass = PointerEventPass.Initial)
-            do {
-                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                val change = event.changes.firstOrNull()
-                if (change != null && change.pressed) {
-                    val yDiff = change.positionChange().y
-                    val xDiff = change.positionChange().x
-                    if (yDiff > 0f && kotlin.math.abs(yDiff) >= kotlin.math.abs(xDiff)) {
-                        change.consume()
-                    }
-                }
-            } while (event.changes.any { it.pressed })
-        }
-    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -2023,7 +1992,7 @@ fun PosCashierBottomSheet(
                 } else {
                     cartItems.add(CartItem(name = matchedProduct.name, price = matchedProduct.price, qty = 1))
                 }
-                Toast.makeText(context, "✅ Barcode Scanned: +1 ${matchedProduct.name}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Barcode Scanned: +1 ${matchedProduct.name}", Toast.LENGTH_SHORT).show()
             },
             onBarcodeNotFound = { unkCode ->
                 showBarcodeScannerModal = false
@@ -2067,11 +2036,11 @@ fun PosCashierBottomSheet(
                 } else {
                     cartItems.add(CartItem(name = name, price = newPriceLong, qty = 1))
                 }
-                Toast.makeText(context, "🎉 Produk '$name' berhasil terdaftar & masuk keranjang!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Produk '$name' berhasil terdaftar & masuk keranjang!", Toast.LENGTH_LONG).show()
             },
             onAddNewCategory = { name, parentId ->
                 etalaseVm.addCategory(name, parentId)
-                Toast.makeText(context, "✅ Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -2183,7 +2152,91 @@ fun PosCashierBottomSheet(
 }
 
 /**
- * Modal Simulator Barcode Scanner Kamera HP untuk Kasir
+ * View Kamera Live Menggunakan CameraX & ML Kit Barcode Scanner
+ */
+@androidx.annotation.OptIn(androidx.camera.core.ExperimentalGetImage::class)
+@Composable
+fun CameraXScannerView(
+    isFlashOn: Boolean,
+    onBarcodeDetected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    var camera by remember { mutableStateOf<androidx.camera.core.Camera?>(null) }
+    var hasDetected by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isFlashOn, camera) {
+        camera?.cameraControl?.enableTorch(isFlashOn)
+    }
+
+    androidx.compose.ui.viewinterop.AndroidView(
+        factory = { ctx ->
+            val previewView = androidx.camera.view.PreviewView(ctx).apply {
+                scaleType = androidx.camera.view.PreviewView.ScaleType.FILL_CENTER
+            }
+            val cameraProviderFuture = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(ctx)
+            cameraProviderFuture.addListener({
+                try {
+                    val cameraProvider = cameraProviderFuture.get()
+                    val preview = androidx.camera.core.Preview.Builder().build().also {
+                        it.setSurfaceProvider(previewView.surfaceProvider)
+                    }
+
+                    val barcodeScanner = com.google.mlkit.vision.barcode.BarcodeScanning.getClient()
+
+                    val imageAnalysis = androidx.camera.core.ImageAnalysis.Builder()
+                        .setBackpressureStrategy(androidx.camera.core.ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build()
+
+                    imageAnalysis.setAnalyzer(
+                        ContextCompat.getMainExecutor(ctx)
+                    ) { imageProxy ->
+                        val mediaImage = imageProxy.image
+                        if (mediaImage != null && !hasDetected) {
+                            val image = com.google.mlkit.vision.common.InputImage.fromMediaImage(
+                                mediaImage,
+                                imageProxy.imageInfo.rotationDegrees
+                            )
+                            barcodeScanner.process(image)
+                                .addOnSuccessListener { barcodes ->
+                                    for (barcode in barcodes) {
+                                        val rawValue = barcode.rawValue
+                                        if (!rawValue.isNullOrBlank() && !hasDetected) {
+                                            hasDetected = true
+                                            onBarcodeDetected(rawValue)
+                                            break
+                                        }
+                                    }
+                                }
+                                .addOnCompleteListener {
+                                    imageProxy.close()
+                                }
+                        } else {
+                            imageProxy.close()
+                        }
+                    }
+
+                    val cameraSelector = androidx.camera.core.CameraSelector.DEFAULT_BACK_CAMERA
+                    cameraProvider.unbindAll()
+                    camera = cameraProvider.bindToLifecycle(
+                        lifecycleOwner,
+                        cameraSelector,
+                        preview,
+                        imageAnalysis
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }, ContextCompat.getMainExecutor(ctx))
+            previewView
+        },
+        modifier = modifier
+    )
+}
+
+/**
+ * Modal Barcode Scanner Kamera HP Real-Time untuk Kasir
  */
 @Composable
 fun BarcodeScannerDialog(
@@ -2218,9 +2271,9 @@ fun BarcodeScannerDialog(
     ) { isGranted ->
         hasCameraPermission = isGranted
         if (isGranted) {
-            Toast.makeText(context, "✅ Izin kamera diberikan", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Izin kamera diberikan", Toast.LENGTH_SHORT).show()
         } else {
-            Toast.makeText(context, "⚠️ Izin kamera ditolak. Silakan berikan izin dari Pengaturan HP.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Izin kamera ditolak. Silakan berikan izin dari Pengaturan HP.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -2269,43 +2322,38 @@ fun BarcodeScannerDialog(
                         modifier = Modifier.padding(vertical = 8.dp)
                     )
                 } else {
-                    // Visual Camera Frame Viewfinder Simulation
+                    // Live Camera Viewfinder using CameraX & ML Kit
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp)
+                            .height(200.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .background(Color.Black),
                         contentAlignment = Alignment.Center
                     ) {
+                        CameraXScannerView(
+                            isFlashOn = isFlashOn,
+                            onBarcodeDetected = { scannedCode ->
+                                processBarcode(scannedCode)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+
                         // Laser scan line visual
                         Box(
                             modifier = Modifier
-                                .fillMaxWidth(0.8f)
+                                .fillMaxWidth(0.85f)
                                 .height(2.dp)
                                 .background(Color.Red)
                         )
 
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                imageVector = Icons.Default.CameraAlt,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.5f),
-                                modifier = Modifier.size(40.dp)
-                            )
-                            Text(
-                                text = "Arahkan Barcode Produk ke Garis Merah",
-                                fontSize = 11.sp,
-                                color = Color.White.copy(alpha = 0.8f)
-                            )
-                        }
-
-                        // Flash Light Toggle Button Simulator
+                        // Flash Light Toggle Button
                         IconButton(
                             onClick = { isFlashOn = !isFlashOn },
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .padding(8.dp)
+                                .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.FlashOn,
@@ -2322,7 +2370,7 @@ fun BarcodeScannerDialog(
                 OutlinedTextField(
                     value = barcodeInput,
                     onValueChange = { barcodeInput = it },
-                    label = { Text("Ketik No. Barcode / SKU") },
+                    label = { Text("Ketik No. Barcode / SKU Manual") },
                     placeholder = { Text("Contoh: 8991001 atau 8999999") },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
@@ -2333,54 +2381,6 @@ fun BarcodeScannerDialog(
                         }
                     }
                 )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Simulation buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Contoh Barcode / Simulasi:", fontSize = 11.sp, color = TextSubtle)
-
-                    Surface(
-                        onClick = { processBarcode("899987654321") },
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFFFFF3E0),
-                        border = BorderStroke(1.dp, Color(0xFFFFB74D))
-                    ) {
-                        Text(
-                            text = "⚡ Scan Gagal (Tdk Terdaftar)",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFFE65100),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 6.dp)
-                ) {
-                    items(presetProducts) { p ->
-                        Surface(
-                            onClick = { onBarcodeScanned(p) },
-                            shape = RoundedCornerShape(8.dp),
-                            color = PurplePrimaryContainer,
-                            border = BorderStroke(1.dp, PurplePrimary.copy(alpha = 0.3f))
-                        ) {
-                            Text(
-                                text = "${p.barcode} (${p.name})",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PurplePrimary,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -2658,7 +2658,7 @@ fun ReceiptThermalModal(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "👁️ Pratinjau",
+                            text = "Pratinjau",
                             fontSize = 13.sp,
                             fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium,
                             color = if (selectedTab == 0) PurplePrimary else TextSubtle
@@ -2686,7 +2686,7 @@ fun ReceiptThermalModal(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "✏️ Edit Teks Struk",
+                            text = "Edit Teks Struk",
                             fontSize = 13.sp,
                             fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium,
                             color = if (selectedTab == 1) PurplePrimary else TextSubtle
@@ -2712,7 +2712,7 @@ fun ReceiptThermalModal(
                             horizontalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = "✨ Teks struk telah dikustomisasi secara manual",
+                                text = "Teks struk telah dikustomisasi secara manual",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = Color(0xFFB78103)
@@ -2998,7 +2998,7 @@ fun ReceiptThermalModal(
                         Button(
                             onClick = {
                                 selectedTab = 0
-                                Toast.makeText(context, "✅ Teks Struk diperbarui!", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Teks Struk diperbarui!", Toast.LENGTH_SHORT).show()
                             },
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
@@ -3617,7 +3617,7 @@ fun QrisSetupDialog(
                         staticCode = staticCode,
                         imageUri = imageUriState
                     )
-                    Toast.makeText(context, "✅ Pengaturan QRIS Berhasil Disimpan", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Pengaturan QRIS Berhasil Disimpan", Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
                 shape = RoundedCornerShape(14.dp),
@@ -3911,7 +3911,7 @@ fun EWalletNotConfiguredDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "💡 Masukkan nomor HP / ID akun & upload QR code $provider Anda di menu setup.",
+                        text = "Masukkan nomor HP / ID akun & upload QR code $provider Anda di menu setup.",
                         fontSize = 11.sp,
                         color = Color(0xFFB71C1C),
                         modifier = Modifier.padding(10.dp),
@@ -4382,7 +4382,7 @@ fun EWalletSetupDialog(
                         accountName = finalName,
                         imageUri = imageUriState
                     )
-                    Toast.makeText(context, "✅ Pengaturan $selectedProvider Berhasil Disimpan", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Pengaturan $selectedProvider Berhasil Disimpan", Toast.LENGTH_SHORT).show()
                     onDismiss()
                 },
                 shape = RoundedCornerShape(14.dp),
@@ -4755,7 +4755,7 @@ fun EWalletPaymentDialog(
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "📷 Ingin tampilkan Gambar QR $activeProvider? Unggah di sini",
+                                text = "Ingin tampilkan Gambar QR $activeProvider? Unggah di sini",
                                 fontSize = 11.sp,
                                 color = providerColor,
                                 fontWeight = FontWeight.Bold

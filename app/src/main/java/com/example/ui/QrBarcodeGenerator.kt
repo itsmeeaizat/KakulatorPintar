@@ -262,7 +262,7 @@ object QrBarcodeGenerator {
                     resolver.openOutputStream(imageUri)?.use { stream ->
                         bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
                     }
-                    Toast.makeText(context, "✅ Barcode $productName berhasil disimpan ke Galeri!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Barcode $productName berhasil disimpan ke Galeri!", Toast.LENGTH_LONG).show()
                     true
                 } else false
             } else {
@@ -274,12 +274,12 @@ object QrBarcodeGenerator {
                 FileOutputStream(file).use { stream ->
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
                 }
-                Toast.makeText(context, "✅ Barcode $productName disimpan di: ${file.absolutePath}", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Barcode $productName disimpan di: ${file.absolutePath}", Toast.LENGTH_LONG).show()
                 true
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            Toast.makeText(context, "❌ Gagal menyimpan label barcode: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Gagal menyimpan label barcode: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
             false
         }
     }

@@ -16,8 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FolderSpecial
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,17 +35,39 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.core.content.ContextCompat
 
 /**
- * Utilitas untuk Memeriksa & Meminta Izin Akses Perangkat (Kamera, Galeri, Penyimpanan)
+ * Utilitas Sistem Penanganan Izin Runtime (Runtime Permission Checker)
+ * Menggunakan ActivityResultContracts & ContextCompat.checkSelfPermission
  */
 object PermissionUtils {
 
-    fun hasCameraPermission(context: Context): Boolean {
+    /**
+     * Memeriksa status izin tunggal menggunakan ContextCompat.checkSelfPermission
+     */
+    fun hasPermission(context: Context, permission: String): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
-            Manifest.permission.CAMERA
+            permission
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    /**
+     * Memeriksa izin akses kamera
+     */
+    fun hasCameraPermission(context: Context): Boolean {
+        return hasPermission(context, Manifest.permission.CAMERA)
+    }
+
+    /**
+     * Memeriksa izin lokasi (Fine atau Coarse)
+     */
+    fun hasLocationPermission(context: Context): Boolean {
+        return hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ||
+               hasPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
+
+    /**
+     * Mendapatkan daftar izin penyimpanan sesuai versi Android SDK
+     */
     fun getRequiredStoragePermissions(): Array<String> {
         return when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(
@@ -61,17 +83,31 @@ object PermissionUtils {
         }
     }
 
+    /**
+     * Mendapatkan daftar izin lokasi
+     */
+    fun getRequiredLocationPermissions(): Array<String> {
+        return arrayOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+    }
+
+    /**
+     * Memeriksa izin penyimpanan/galeri
+     */
     fun hasStoragePermission(context: Context): Boolean {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             // Android 10 (API 29) ke atas menggunakan Scoped Storage / MediaStore API
             return true
         }
         val permissions = getRequiredStoragePermissions()
-        return permissions.all {
-            ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED
-        }
+        return permissions.all { hasPermission(context, it) }
     }
 
+    /**
+     * Fallback: Mengarahkan pengguna ke Pengaturan Aplikasi jika izin ditolak secara permanen
+     */
     fun openAppSettings(context: Context) {
         try {
             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
@@ -80,13 +116,74 @@ object PermissionUtils {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "Buka Pengaturan HP secara manual untuk memberikan izin", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Silakan buka Pengaturan HP secara manual untuk memberikan izin.", Toast.LENGTH_LONG).show()
         }
     }
 }
 
 /**
- * Banner Permintaan Izin Kamera untuk Barcode Scanner
+ * Helper Hook Compose untuk meminta izin tunggal dengan ActivityResultContracts.RequestPermission
+ * Selalu mengecek ContextCompat.checkSelfPermission sebelum menampilkan dialog sistem.
+ */
+@Composable
+fun rememberPermissionRequester(
+    permission: String,
+    onPermissionResult: (Boolean) -> Unit
+): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        onPermissionResult(isGranted)
+    }
+
+    return {
+        if (PermissionUtils.hasPermission(context, permission)) {
+            onPermissionResult(true)
+        } else {
+            try {
+                launcher.launch(permission)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Gagal meminta izin: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                onPermissionResult(false)
+            }
+        }
+    }
+}
+
+/**
+ * Helper Hook Compose untuk meminta banyak izin sekaligus dengan ActivityResultContracts.RequestMultiplePermissions
+ */
+@Composable
+fun rememberMultiplePermissionsRequester(
+    permissions: Array<String>,
+    onPermissionsResult: (Boolean) -> Unit
+): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissionsMap ->
+        val allGranted = permissionsMap.values.all { it }
+        onPermissionsResult(allGranted)
+    }
+
+    return {
+        val allGranted = permissions.all { PermissionUtils.hasPermission(context, it) }
+        if (allGranted) {
+            onPermissionsResult(true)
+        } else {
+            try {
+                launcher.launch(permissions)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Gagal meminta izin: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                onPermissionsResult(false)
+            }
+        }
+    }
+}
+
+/**
+ * Banner / Card Permintaan Izin Kamera untuk Fitur Scanner
  */
 @Composable
 fun CameraPermissionRequestCard(
@@ -163,7 +260,7 @@ fun CameraPermissionRequestCard(
 }
 
 /**
- * Dialog Penjelasan Izin Penyimpanan/Galeri
+ * Dialog Edukasi & Penanganan Izin Penyimpanan / Galeri
  */
 @Composable
 fun StoragePermissionDialog(
@@ -178,15 +275,90 @@ fun StoragePermissionDialog(
     ) { permissionsMap ->
         val allGranted = permissionsMap.values.all { it }
         if (allGranted) {
-            Toast.makeText(context, "✅ Izin penyimpanan diberikan", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Izin penyimpanan diberikan", Toast.LENGTH_SHORT).show()
             onGranted()
             onDismiss()
         } else {
             isDeniedBySystem = true
-            Toast.makeText(context, "⚠️ Izin ditolak. Silakan aktifkan via Pengaturan.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Izin ditolak. Silakan aktifkan via Pengaturan.", Toast.LENGTH_LONG).show()
         }
     }
 
+    GenericPermissionEducationalDialog(
+        title = "Akses Penyimpanan & Galeri",
+        description = "Izin ini diperlukan untuk menyimpan gambar Struk Belanja (.png) atau memilih foto QRIS dari galeri HP Anda.",
+        icon = Icons.Default.FolderSpecial,
+        iconTint = Color(0xFF2563EB),
+        iconBgColor = Color(0xFFEFF6FF),
+        isDenied = isDeniedBySystem,
+        onDismiss = onDismiss,
+        onRequest = {
+            if (isDeniedBySystem) {
+                PermissionUtils.openAppSettings(context)
+            } else {
+                launcher.launch(PermissionUtils.getRequiredStoragePermissions())
+            }
+        }
+    )
+}
+
+/**
+ * Dialog Edukasi & Penanganan Izin Lokasi Perangkat
+ */
+@Composable
+fun LocationPermissionDialog(
+    onDismiss: () -> Unit,
+    onGranted: () -> Unit
+) {
+    val context = LocalContext.current
+    var isDeniedBySystem by remember { mutableStateOf(false) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissionsMap ->
+        val granted = permissionsMap.values.any { it }
+        if (granted) {
+            Toast.makeText(context, "Izin lokasi diberikan", Toast.LENGTH_SHORT).show()
+            onGranted()
+            onDismiss()
+        } else {
+            isDeniedBySystem = true
+            Toast.makeText(context, "Izin lokasi ditolak. Buka Pengaturan untuk mengaktifkan.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    GenericPermissionEducationalDialog(
+        title = "Akses Lokasi Perangkat",
+        description = "Aplikasi memerlukan akses lokasi untuk mendeteksi alamat toko kasir dan koordinat secara otomatis pada struk belanja.",
+        icon = Icons.Default.LocationOn,
+        iconTint = Color(0xFF16A34A),
+        iconBgColor = Color(0xFFDCFCE7),
+        isDenied = isDeniedBySystem,
+        onDismiss = onDismiss,
+        onRequest = {
+            if (isDeniedBySystem) {
+                PermissionUtils.openAppSettings(context)
+            } else {
+                launcher.launch(PermissionUtils.getRequiredLocationPermissions())
+            }
+        }
+    )
+}
+
+/**
+ * Component Dialog Edukasi Izin Pop-Up Generik
+ */
+@Composable
+fun GenericPermissionEducationalDialog(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    iconTint: Color,
+    iconBgColor: Color,
+    isDenied: Boolean,
+    onDismiss: () -> Unit,
+    onRequest: () -> Unit
+) {
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(dismissOnBackPress = true, dismissOnClickOutside = true)
@@ -209,13 +381,13 @@ fun StoragePermissionDialog(
                     modifier = Modifier
                         .size(54.dp)
                         .clip(RoundedCornerShape(27.dp))
-                        .background(Color(0xFFEFF6FF)),
+                        .background(iconBgColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.FolderSpecial,
-                        contentDescription = "Penyimpanan Galeri",
-                        tint = Color(0xFF2563EB),
+                        imageVector = icon,
+                        contentDescription = title,
+                        tint = iconTint,
                         modifier = Modifier.size(28.dp)
                     )
                 }
@@ -223,26 +395,26 @@ fun StoragePermissionDialog(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Akses Penyimpanan & Galeri",
+                    text = title,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF1E3A8A)
+                    color = Color(0xFF1E293B)
                 )
 
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "Izin ini diperlukan untuk menyimpan gambar Struk Belanja (.png) atau memilih foto QRIS dari galeri HP Anda.",
+                    text = description,
                     fontSize = 12.sp,
-                    color = Color(0xFF4B5563),
+                    color = Color(0xFF475569),
                     textAlign = TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                if (isDeniedBySystem) {
+                if (isDenied) {
                     Text(
-                        text = "Izin sempat ditolak sebelumnya. Buka Pengaturan Aplikasi untuk mengaktifkan izin secara manual.",
+                        text = "Izin sempat ditolak. Buka Pengaturan Aplikasi untuk mengaktifkan izin secara manual.",
                         fontSize = 11.sp,
                         color = Color(0xFFDC2626),
                         textAlign = TextAlign.Center,
@@ -263,19 +435,13 @@ fun StoragePermissionDialog(
                     }
 
                     Button(
-                        onClick = {
-                            if (isDeniedBySystem) {
-                                PermissionUtils.openAppSettings(context)
-                            } else {
-                                launcher.launch(PermissionUtils.getRequiredStoragePermissions())
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                        onClick = onRequest,
+                        colors = ButtonDefaults.buttonColors(containerColor = iconTint),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1.2f)
                     ) {
                         Text(
-                            text = if (isDeniedBySystem) "Pengaturan HP" else "Berikan Izin",
+                            text = if (isDenied) "Pengaturan HP" else "Berikan Izin",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -285,3 +451,4 @@ fun StoragePermissionDialog(
         }
     }
 }
+

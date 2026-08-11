@@ -279,7 +279,7 @@ fun EtalaseView(
                                 product = product,
                                 onAddToCart = {
                                     onAddToCart(product)
-                                    Toast.makeText(context, "✅ ${product.name} ditambahkan", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "${product.name} ditambahkan", Toast.LENGTH_SHORT).show()
                                 },
                                 onEdit = { editingProduct = product },
                                 onDelete = { viewModel.deleteProduct(product.id) }
@@ -460,7 +460,7 @@ fun EtalaseView(
                                     product = product,
                                     onAddToCart = {
                                         onAddToCart(product)
-                                        Toast.makeText(context, "✅ '${product.name}' masuk keranjang", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "'${product.name}' masuk keranjang", Toast.LENGTH_SHORT).show()
                                     },
                                     onEdit = { editingProduct = product },
                                     onDelete = { viewModel.deleteProduct(product.id) },
@@ -555,7 +555,7 @@ fun EtalaseView(
             onSave = { name, parentId ->
                 viewModel.addCategory(name, parentId)
                 showAddCategoryDialog = false
-                Toast.makeText(context, "✅ Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -569,11 +569,11 @@ fun EtalaseView(
             onSave = { name, brand, price, stock, categoryId, barcode ->
                 viewModel.addProduct(name, brand, price, stock, categoryId, barcode)
                 showAddProductDialog = false
-                Toast.makeText(context, "✅ Produk '$name' berhasil ditambahkan", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Produk '$name' berhasil ditambahkan", Toast.LENGTH_SHORT).show()
             },
             onAddNewCategory = { name, parentId ->
                 viewModel.addCategory(name, parentId)
-                Toast.makeText(context, "✅ Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -598,11 +598,11 @@ fun EtalaseView(
             onSave = { id, name, brand, price, stock, categoryId, barcode ->
                 viewModel.updateProduct(id, name, brand, price, stock, categoryId, barcode)
                 editingProduct = null
-                Toast.makeText(context, "✅ Produk '$name' berhasil diperbarui", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Produk '$name' berhasil diperbarui", Toast.LENGTH_SHORT).show()
             },
             onAddNewCategory = { name, parentId ->
                 viewModel.addCategory(name, parentId)
-                Toast.makeText(context, "✅ Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Kategori '$name' berhasil dibuat", Toast.LENGTH_SHORT).show()
             }
         )
     }
@@ -1518,7 +1518,7 @@ fun CategoryPickerModalDialog(
 
                                 if (parents.isEmpty()) {
                                     Text(
-                                        text = "⚠️ Buat kategori Level ${selectedLevel - 1} terlebih dahulu!",
+                                        text = "Buat kategori Level ${selectedLevel - 1} terlebih dahulu!",
                                         fontSize = 11.sp,
                                         color = Color(0xFFD97706),
                                         fontWeight = FontWeight.Bold
@@ -2452,7 +2452,7 @@ fun AllProductsListDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "📋 Urutan Abjad A-Z (${filteredAndSortedProducts.size} Barang)",
+                        text = "Urutan Abjad A-Z (${filteredAndSortedProducts.size} Barang)",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextSubtle
@@ -2510,7 +2510,7 @@ fun AllProductsListDialog(
                                 categoryName = categoryName,
                                 onAddToCart = {
                                     onAddToCart(product)
-                                    Toast.makeText(context, "✅ ${product.name} masuk keranjang", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "${product.name} masuk keranjang", Toast.LENGTH_SHORT).show()
                                 },
                                 onEdit = { onEditProduct(product) }
                             )
@@ -2852,9 +2852,9 @@ fun ProductQrPrintDialog(
                             barcodeStr = barcodeCode
                         )
                         if (savedUri != null) {
-                            Toast.makeText(context, "✅ Label berhasil disimpan ke Galeri!", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Label berhasil disimpan ke Galeri!", Toast.LENGTH_LONG).show()
                         } else {
-                            Toast.makeText(context, "❌ Gagal menyimpan label", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Gagal menyimpan label", Toast.LENGTH_SHORT).show()
                         }
                     } else {
                         showStoragePermissionDialog = true
@@ -2888,7 +2888,7 @@ fun ProductQrPrintDialog(
                     productName = product.name,
                     barcodeStr = barcodeCode
                 )
-                Toast.makeText(context, "✅ Label berhasil disimpan ke Galeri!", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, "Label berhasil disimpan ke Galeri!", Toast.LENGTH_LONG).show()
             }
         )
     }

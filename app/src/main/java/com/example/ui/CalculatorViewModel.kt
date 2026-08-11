@@ -28,6 +28,7 @@ data class CalculatorUiState(
     val historyList: List<CalculationHistoryEntity> = emptyList(),
     val isHistoryOpen: Boolean = false,
     val isNewCalculationStarted: Boolean = true,
+    val isOperatorClicked: Boolean = false,
     val isScientificMode: Boolean = false
 )
 
@@ -57,33 +58,40 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { currentState ->
             val cleanState = currentState.copy(errorMessage = null)
 
-            if (cleanState.isNewCalculationStarted && cleanState.operator.isEmpty()) {
-                val newOp1 = if (digit == ".") "0." else digit
-                updateStateWithOperands(cleanState, newOp1, "", "")
-            } else if (cleanState.operator.isEmpty()) {
-                if (digit == "." && cleanState.firstOperand.contains(".")) return@update cleanState
-                if (cleanState.firstOperand.length >= 15) {
-                    return@update cleanState.copy(errorMessage = "Maksimal 15 digit angka.")
+            if (cleanState.operator.isEmpty()) {
+                if (cleanState.isNewCalculationStarted) {
+                    val newOp1 = if (digit == ".") "0." else digit
+                    updateStateWithOperands(cleanState, newOp1, "", "", isNewCalc = false, isOpClicked = false)
+                } else {
+                    if (digit == "." && cleanState.firstOperand.contains(".")) return@update cleanState
+                    if (cleanState.firstOperand.length >= 15) {
+                        return@update cleanState.copy(errorMessage = "Maksimal 15 digit angka.")
+                    }
+                    val currentOp1 = cleanState.firstOperand
+                    val newOp1 = when {
+                        currentOp1 == "0" && digit != "." -> digit
+                        currentOp1 == "" -> if (digit == ".") "0." else digit
+                        else -> currentOp1 + digit
+                    }
+                    updateStateWithOperands(cleanState, newOp1, "", "", isNewCalc = false, isOpClicked = false)
                 }
-                val currentOp1 = cleanState.firstOperand
-                val newOp1 = when {
-                    currentOp1 == "0" && digit != "." -> digit
-                    currentOp1 == "" -> if (digit == ".") "0." else digit
-                    else -> currentOp1 + digit
-                }
-                updateStateWithOperands(cleanState, newOp1, "", "")
             } else {
-                if (digit == "." && cleanState.secondOperand.contains(".")) return@update cleanState
-                if (cleanState.secondOperand.length >= 15) {
-                    return@update cleanState.copy(errorMessage = "Maksimal 15 digit angka.")
+                if (cleanState.isOperatorClicked) {
+                    val newOp2 = if (digit == ".") "0." else digit
+                    updateStateWithOperands(cleanState, cleanState.firstOperand, cleanState.operator, newOp2, isNewCalc = false, isOpClicked = false)
+                } else {
+                    if (digit == "." && cleanState.secondOperand.contains(".")) return@update cleanState
+                    if (cleanState.secondOperand.length >= 15) {
+                        return@update cleanState.copy(errorMessage = "Maksimal 15 digit angka.")
+                    }
+                    val currentOp2 = cleanState.secondOperand
+                    val newOp2 = when {
+                        currentOp2 == "0" && digit != "." -> digit
+                        currentOp2 == "" -> if (digit == ".") "0." else digit
+                        else -> currentOp2 + digit
+                    }
+                    updateStateWithOperands(cleanState, cleanState.firstOperand, cleanState.operator, newOp2, isNewCalc = false, isOpClicked = false)
                 }
-                val currentOp2 = cleanState.secondOperand
-                val newOp2 = when {
-                    currentOp2 == "0" && digit != "." -> digit
-                    currentOp2 == "" -> if (digit == ".") "0." else digit
-                    else -> currentOp2 + digit
-                }
-                updateStateWithOperands(cleanState, cleanState.firstOperand, cleanState.operator, newOp2)
             }
         }
     }
@@ -107,22 +115,31 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                         secondOperand = "",
                         expressionDisplay = "${calc.result} $displayOp",
                         liveResult = calc.result,
-                        isNewCalculationStarted = false
+                        isNewCalculationStarted = false,
+                        isOperatorClicked = true
                     )
                 } else {
-                    cleanState
+                    cleanState.copy(
+                        operator = displayOp,
+                        secondOperand = "",
+                        isOperatorClicked = true
+                    )
                 }
             } else if (cleanState.firstOperand.isNotEmpty()) {
                 cleanState.copy(
                     operator = displayOp,
+                    secondOperand = "",
                     isNewCalculationStarted = false,
+                    isOperatorClicked = true,
                     expressionDisplay = "${cleanState.firstOperand} $displayOp"
                 )
             } else {
                 cleanState.copy(
                     firstOperand = "0",
                     operator = displayOp,
+                    secondOperand = "",
                     isNewCalculationStarted = false,
+                    isOperatorClicked = true,
                     expressionDisplay = "0 $displayOp"
                 )
             }
@@ -155,7 +172,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                             expressionDisplay = result.expression,
                             liveResult = result.result,
                             errorMessage = null,
-                            isNewCalculationStarted = true
+                            isNewCalculationStarted = true,
+                            isOperatorClicked = false
                         )
                     }
                 }
@@ -177,7 +195,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
                 expressionDisplay = "0",
                 liveResult = "",
                 errorMessage = null,
-                isNewCalculationStarted = true
+                isNewCalculationStarted = true,
+                isOperatorClicked = false
             )
         }
     }
@@ -188,17 +207,18 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
 
             if (cleanState.secondOperand.isNotEmpty()) {
                 val newOp2 = cleanState.secondOperand.dropLast(1)
-                updateStateWithOperands(cleanState, cleanState.firstOperand, cleanState.operator, newOp2)
+                updateStateWithOperands(cleanState, cleanState.firstOperand, cleanState.operator, newOp2, isNewCalc = false, isOpClicked = newOp2.isEmpty())
             } else if (cleanState.operator.isNotEmpty()) {
                 cleanState.copy(
                     operator = "",
+                    isOperatorClicked = false,
                     expressionDisplay = cleanState.firstOperand.ifEmpty { "0" }
                 )
             } else if (cleanState.firstOperand.isNotEmpty()) {
                 val newOp1 = cleanState.firstOperand.dropLast(1)
-                updateStateWithOperands(cleanState, newOp1, "", "")
+                updateStateWithOperands(cleanState, newOp1, "", "", isNewCalc = newOp1.isEmpty(), isOpClicked = false)
             } else {
-                cleanState.copy(expressionDisplay = "0")
+                cleanState.copy(expressionDisplay = "0", isNewCalculationStarted = true, isOperatorClicked = false)
             }
         }
     }
@@ -413,7 +433,9 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
         currentState: CalculatorUiState,
         op1: String,
         op: String,
-        op2: String
+        op2: String,
+        isNewCalc: Boolean = false,
+        isOpClicked: Boolean = false
     ): CalculatorUiState {
         val displayOp = when (op) {
             "*" -> "×"
@@ -441,7 +463,8 @@ class CalculatorViewModel(application: Application) : AndroidViewModel(applicati
             secondOperand = op2,
             expressionDisplay = displayExpr,
             liveResult = liveRes,
-            isNewCalculationStarted = false,
+            isNewCalculationStarted = isNewCalc,
+            isOperatorClicked = isOpClicked,
             errorMessage = null
         )
     }
