@@ -55,6 +55,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.SwipeToDismissBox
@@ -166,6 +167,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
                 ModalBottomSheet(
                     onDismissRequest = { },
                     sheetState = optionsSheetState,
+                    dragHandle = { DismissDragHandle { showMenu = false } },
                     shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                     containerColor = Color.White,
                     scrimColor = Color.Black.copy(alpha = 0.45f)
@@ -963,6 +965,7 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
         ModalBottomSheet(
             onDismissRequest = { },
             sheetState = sheetState,
+            dragHandle = { DismissDragHandle { showHistoryBottomSheet = false } },
             containerColor = SurfaceCanvas
         ) {
             Column(

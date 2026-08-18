@@ -99,6 +99,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -512,14 +513,43 @@ fun rememberLockedSheetState(onDismiss: () -> Unit): SheetState {
     return rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
         confirmValueChange = { newValue ->
-            if (newValue == SheetValue.Hidden) {
-                onDismiss()
-                false
-            } else {
-                true
-            }
+            // Block ALL drag-to-dismiss (Hidden state) — even if blockSheetDragFromContent
+            // leaks (e.g. double swipe). Dismiss is handled by DismissDragHandle or buttons.
+            newValue != SheetValue.Hidden
         }
     )
+}
+
+/**
+ * Custom drag handle: only this area can dismiss the sheet by dragging down.
+ * Content area drags are blocked by blockSheetDragFromContent() + confirmValueChange.
+ */
+@Composable
+fun DismissDragHandle(onDismiss: () -> Unit) {
+    var totalDragY by remember { mutableStateOf(0f) }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 10.dp)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragStart = { totalDragY = 0f },
+                    onVerticalDrag = { change, dragAmount ->
+                        totalDragY += dragAmount
+                        change.consume()
+                    },
+                    onDragEnd = {
+                        if (totalDragY > 80f) {
+                            onDismiss()
+                        }
+                    },
+                    onDragCancel = { totalDragY = 0f }
+                )
+            },
+        contentAlignment = Alignment.Center
+    ) {
+        BottomSheetDefaults.DragHandle()
+    }
 }
 
 fun Modifier.blockSheetDragFromContent(): Modifier = this.pointerInput(Unit) {
@@ -714,6 +744,7 @@ fun PosCashierBottomSheet(
     ModalBottomSheet(
         onDismissRequest = { },
         sheetState = sheetState,
+        dragHandle = { DismissDragHandle(onDismiss) },
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = SurfaceCanvas,
         scrimColor = Color.Black.copy(alpha = 0.5f)
@@ -3143,6 +3174,7 @@ fun ReceiptThermalModal(
     ModalBottomSheet(
         onDismissRequest = { },
         sheetState = receiptState,
+        dragHandle = { DismissDragHandle(onDismiss) },
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = Color(0xFFF8F9FA)
     ) {
@@ -3942,6 +3974,7 @@ fun QrisSetupDialog(
     ModalBottomSheet(
         onDismissRequest = { },
         sheetState = rememberLockedSheetState(onDismiss),
+        dragHandle = { DismissDragHandle(onDismiss) },
         containerColor = Color.White
     ) {
         Column(
@@ -4220,6 +4253,7 @@ fun QrisPaymentDialog(
     ModalBottomSheet(
         onDismissRequest = { },
         sheetState = rememberLockedSheetState(onDismiss),
+        dragHandle = { DismissDragHandle(onDismiss) },
         containerColor = Color.White
     ) {
         Column(
@@ -4567,6 +4601,7 @@ fun EWalletSetupDialog(
     ModalBottomSheet(
         onDismissRequest = { },
         sheetState = rememberLockedSheetState(onDismiss),
+        dragHandle = { DismissDragHandle(onDismiss) },
         containerColor = Color.White
     ) {
         Column(
@@ -5006,6 +5041,7 @@ fun EWalletPaymentDialog(
     ModalBottomSheet(
         onDismissRequest = { },
         sheetState = rememberLockedSheetState(onDismiss),
+        dragHandle = { DismissDragHandle(onDismiss) },
         containerColor = Color.White
     ) {
         Column(

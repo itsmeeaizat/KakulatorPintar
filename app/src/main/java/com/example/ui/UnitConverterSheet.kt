@@ -146,6 +146,7 @@ fun UnitConverterSheet(
     ModalBottomSheet(
         onDismissRequest = { },
         sheetState = sheetState,
+        dragHandle = { DismissDragHandle(onDismiss) },
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = Color.White,
         scrimColor = Color.Black.copy(alpha = 0.45f)
