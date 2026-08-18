@@ -1,0 +1,16 @@
+KakulatorPintar
+Copyright 2026 Aizat (itsmeeaizat)
+
+This product includes software developed by Aizat.
+Licensed under the Apache License, Version 2.0.
+
+Third-party libraries used:
+- Jetpack Compose (Apache 2.0) - Google
+- Material 3 Components (Apache 2.0) - Google
+- Retrofit (Apache 2.0) - Square
+- OkHttp (Apache 2.0) - Square
+- Moshi (Apache 2.0) - Square
+- Room (Apache 2.0) - Google
+- Firebase AI (Apache 2.0) - Google
+- ML Kit Barcode Scanning (Apache 2.0) - Google
+- CameraX (Apache 2.0) - Google
