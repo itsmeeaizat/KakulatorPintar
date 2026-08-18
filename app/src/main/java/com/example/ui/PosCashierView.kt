@@ -116,7 +116,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.foundation.gestures.awaitEachEvent
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -871,15 +870,18 @@ fun PosCashierBottomSheet(
                             // Intercept downward drag at Initial pass (before LazyColumn's
                             // scroll handler) when the list is at the top — prevents the
                             // sheet's anchoredDraggable from receiving the drag and dismissing.
-                            awaitEachEvent {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull() ?: return@awaitEachEvent
-                                if (change.pressed && change.positionChanged()) {
-                                    val dy = change.positionChange().y
-                                    // Only consume DOWNWARD drags when content can't scroll up
-                                    if (dy > 0f && !kasirListState.canScrollBackward) {
-                                        change.consume()
+                            awaitEachGesture {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull() ?: break
+                                    if (change.positionChanged()) {
+                                        val dy = change.positionChange().y
+                                        // Only consume DOWNWARD drags when content can't scroll up
+                                        if (dy > 0f && !kasirListState.canScrollBackward) {
+                                            change.consume()
+                                        }
                                     }
+                                    if (!change.pressed) break
                                 }
                             }
                         },
