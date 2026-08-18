@@ -47,6 +47,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -114,6 +116,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.gestures.awaitEachEvent
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -858,10 +861,28 @@ fun PosCashierBottomSheet(
 
             // CONTENT TAB 0: TRANSAKSI KASIR
             if (activeTab == 0) {
+                val kasirListState = rememberLazyListState()
                 LazyColumn(
+                    state = kasirListState,
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .pointerInput(kasirListState) {
+                            // Intercept downward drag at Initial pass (before LazyColumn's
+                            // scroll handler) when the list is at the top — prevents the
+                            // sheet's anchoredDraggable from receiving the drag and dismissing.
+                            awaitEachEvent {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                val change = event.changes.firstOrNull() ?: return@awaitEachEvent
+                                if (change.pressed && change.positionChanged()) {
+                                    val dy = change.positionChange().y
+                                    // Only consume DOWNWARD drags when content can't scroll up
+                                    if (dy > 0f && !kasirListState.canScrollBackward) {
+                                        change.consume()
+                                    }
+                                }
+                            }
+                        },
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Section Katalog & Filter Kategori + Barcode Scanner Trigger
