@@ -524,6 +524,7 @@ fun rememberLockedSheetState(onDismiss: () -> Unit): SheetState {
  * Custom drag handle: only this area can dismiss the sheet by dragging down.
  * Content area drags are blocked by blockSheetDragFromContent() + confirmValueChange.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DismissDragHandle(onDismiss: () -> Unit) {
     var totalDragY by remember { mutableStateOf(0f) }
