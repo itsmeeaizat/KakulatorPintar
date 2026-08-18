@@ -19,6 +19,7 @@ import android.print.PrintDocumentAdapter
 import android.print.PrintManager
 import android.provider.MediaStore
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -109,6 +110,8 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -492,7 +495,55 @@ fun rememberBlockSheetSwipeNestedScrollConnection(): NestedScrollConnection {
     }
 }
 
-fun Modifier.blockSheetDragFromContent(): Modifier = this
+
+/**
+ * SheetState yang terkunci — scrim tap (klik area gelap di luar sheet) tidak bisa menutup sheet.
+ * Hanya bisa ditutup via: drag handle di atas, tombol close, atau back button.
+ *
+ * Cara kerja:
+ * - BackHandler: tangani tombol back → onDismiss()
+ * - confirmValueChange: kalau sheet mau ke Hidden (via drag handle), panggil onDismiss() langsung
+ * - onDismissRequest di ModalBottomSheet di-set ke no-op → scrim tap tidak menutup sheet
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun rememberLockedSheetState(onDismiss: () -> Unit): SheetState {
+    BackHandler { onDismiss() }
+    return rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { newValue ->
+            if (newValue == SheetValue.Hidden) {
+                onDismiss()
+                false
+            } else {
+                true
+            }
+        }
+    )
+}
+
+fun Modifier.blockSheetDragFromContent(): Modifier = this.pointerInput(Unit) {
+    // Intercept vertical drag gestures on the content area BEFORE the sheet's
+    // anchoredDraggable handler can process them. This prevents the sheet from
+    // being dragged/dismissed when the user swipes down on content — even on
+    // non-scrollable areas like headers, tabs, and buttons.
+    //
+    // How it works: at PointerEventPass.Main, child gesture detectors dispatch
+    // before parents. So:
+    //   - If a LazyColumn can scroll, IT consumes the drag first → this detector
+    //     sees consumed events and bails out → sheet also bails out. Scrolling works.
+    //   - If content can't scroll (at top, or non-scrollable area), this detector
+    //     consumes the drag → sheet sees consumed events and doesn't drag. Sheet stays open.
+    detectVerticalDragGestures(
+        onDragStart = { },
+        onDragEnd = { },
+        onDragCancel = { },
+        onVerticalDrag = { change, _ ->
+            // Consume the drag change so the sheet's anchoredDraggable won't receive it
+            change.consume()
+        }
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -500,7 +551,7 @@ fun PosCashierBottomSheet(
     initialTab: Int = 0,
     onDismiss: () -> Unit
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberLockedSheetState(onDismiss)
     val context = LocalContext.current
 
     var activeTab by remember { mutableStateOf(initialTab) } // 0: Transaksi Kasir, 1: Etalase, 2: Riwayat Penjualan
@@ -661,7 +712,7 @@ fun PosCashierBottomSheet(
     val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { },
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = SurfaceCanvas,
@@ -2991,7 +3042,7 @@ fun ReceiptThermalModal(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val receiptState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val receiptState = rememberLockedSheetState(onDismiss)
     val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
 
     val currentDateStr = remember { existingDateStr ?: dateFormat.format(Date()) }
@@ -3090,7 +3141,7 @@ fun ReceiptThermalModal(
     val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { },
         sheetState = receiptState,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = Color(0xFFF8F9FA)
@@ -3889,8 +3940,8 @@ fun QrisSetupDialog(
     val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        onDismissRequest = { },
+        sheetState = rememberLockedSheetState(onDismiss),
         containerColor = Color.White
     ) {
         Column(
@@ -4167,8 +4218,8 @@ fun QrisPaymentDialog(
     val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        onDismissRequest = { },
+        sheetState = rememberLockedSheetState(onDismiss),
         containerColor = Color.White
     ) {
         Column(
@@ -4514,8 +4565,8 @@ fun EWalletSetupDialog(
     val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        onDismissRequest = { },
+        sheetState = rememberLockedSheetState(onDismiss),
         containerColor = Color.White
     ) {
         Column(
@@ -4953,8 +5004,8 @@ fun EWalletPaymentDialog(
     val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        onDismissRequest = { },
+        sheetState = rememberLockedSheetState(onDismiss),
         containerColor = Color.White
     ) {
         Column(

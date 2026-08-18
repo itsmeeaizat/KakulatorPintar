@@ -1,5 +1,6 @@
 package com.example.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -60,6 +61,7 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
@@ -159,10 +161,10 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
 
             // Action Sheet Menu (Modern Instagram/iOS Style)
             if (showMenu) {
-                val optionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+                val optionsSheetState = rememberLockedSheetState { showMenu = false }
                 val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
                 ModalBottomSheet(
-                    onDismissRequest = { showMenu = false },
+                    onDismissRequest = { },
                     sheetState = optionsSheetState,
                     shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                     containerColor = Color.White,
@@ -956,10 +958,10 @@ fun CalculatorScreen(viewModel: CalculatorViewModel) {
 
     // Full History Bottom Sheet
     if (showHistoryBottomSheet) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sheetState = rememberLockedSheetState { showHistoryBottomSheet = false }
         val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
         ModalBottomSheet(
-            onDismissRequest = { showHistoryBottomSheet = false },
+            onDismissRequest = { },
             sheetState = sheetState,
             containerColor = SurfaceCanvas
         ) {

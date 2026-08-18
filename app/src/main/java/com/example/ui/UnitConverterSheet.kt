@@ -1,5 +1,6 @@
 package com.example.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -139,11 +140,11 @@ fun UnitConverterSheet(
         df.format(res)
     }
 
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberLockedSheetState(onDismiss)
     val blockSheetSwipe = rememberBlockSheetSwipeNestedScrollConnection()
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { },
         sheetState = sheetState,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = Color.White,
